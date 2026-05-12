@@ -1,0 +1,7 @@
+api/.env
+api/server
+api/tmp/
+web/node_modules
+web/.next
+web/.env.local
+.DS_Store

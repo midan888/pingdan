@@ -63,8 +63,8 @@ func main() {
 	assertionStore := &assertions.Store{Pool: pool}
 	dispatcher := &alerts.Dispatcher{
 		Pool: pool, Logger: logger,
-		SMTPHost: cfg.SMTPHost, SMTPPort: cfg.SMTPPort,
-		SMTPUser: cfg.SMTPUser, SMTPPassword: cfg.SMTPPassword, SMTPFrom: cfg.SMTPFrom,
+		ResendAPIKey:     cfg.ResendAPIKey,
+		EmailFrom:        cfg.EmailFrom,
 		TelegramBotToken: cfg.TelegramBotToken,
 	}
 	scheduler := pinger.NewScheduler(ctx, endpointStore, checkStore, assertionStore, dispatcher, logger)

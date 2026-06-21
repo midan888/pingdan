@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import type { Metadata } from "next";
 import "./globals.css";
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://pingdan.com";
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://pingdan.dev";
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

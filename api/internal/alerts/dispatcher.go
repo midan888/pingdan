@@ -5,9 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
-	"net/smtp"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -19,11 +19,8 @@ type Dispatcher struct {
 	Pool   *pgxpool.Pool
 	Logger *slog.Logger
 
-	SMTPHost     string
-	SMTPPort     int
-	SMTPUser     string
-	SMTPPassword string
-	SMTPFrom     string
+	ResendAPIKey string
+	EmailFrom    string
 
 	TelegramBotToken string
 }
@@ -52,7 +49,7 @@ func (d *Dispatcher) Notify(ctx context.Context, e endpoints.Endpoint, newState 
 		}
 		switch kind {
 		case "email":
-			d.sendEmail(cfg, subject, body)
+			d.sendEmail(ctx, cfg, subject, body)
 		case "telegram":
 			d.sendTelegram(ctx, cfg, body)
 		}
@@ -80,9 +77,10 @@ type emailConfig struct {
 	To string `json:"to"`
 }
 
-func (d *Dispatcher) sendEmail(cfg []byte, subject, body string) {
-	if d.SMTPHost == "" {
-		d.Logger.Warn("alerts: smtp not configured")
+// sendEmail delivers the alert via the Resend HTTP API (https://resend.com/docs/api-reference/emails/send-email).
+func (d *Dispatcher) sendEmail(ctx context.Context, cfg []byte, subject, body string) {
+	if d.ResendAPIKey == "" {
+		d.Logger.Warn("alerts: email not configured (set RESEND_API_KEY)")
 		return
 	}
 	var ec emailConfig
@@ -90,11 +88,28 @@ func (d *Dispatcher) sendEmail(cfg []byte, subject, body string) {
 		d.Logger.Error("alerts: bad email config")
 		return
 	}
-	msg := []byte(fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\n\r\n%s", d.SMTPFrom, ec.To, subject, body))
-	addr := fmt.Sprintf("%s:%d", d.SMTPHost, d.SMTPPort)
-	auth := smtp.PlainAuth("", d.SMTPUser, d.SMTPPassword, d.SMTPHost)
-	if err := smtp.SendMail(addr, auth, d.SMTPFrom, []string{ec.To}, msg); err != nil {
-		d.Logger.Error("alerts: smtp send", "err", err)
+	payload, _ := json.Marshal(map[string]any{
+		"from":    d.EmailFrom,
+		"to":      []string{ec.To},
+		"subject": subject,
+		"text":    body,
+	})
+	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.resend.com/emails", bytes.NewReader(payload))
+	if err != nil {
+		d.Logger.Error("alerts: resend request", "err", err)
+		return
+	}
+	req.Header.Set("Authorization", "Bearer "+d.ResendAPIKey)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		d.Logger.Error("alerts: resend send", "err", err)
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 300 {
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 2048))
+		d.Logger.Error("alerts: resend send", "status", resp.StatusCode, "body", string(respBody))
 	}
 }
 

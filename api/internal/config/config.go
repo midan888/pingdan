@@ -3,7 +3,6 @@ package config
 import (
 	"fmt"
 	"os"
-	"strconv"
 	"time"
 )
 
@@ -20,11 +19,8 @@ type Config struct {
 	GitHubClientID     string
 	GitHubClientSecret string
 
-	SMTPHost     string
-	SMTPPort     int
-	SMTPUser     string
-	SMTPPassword string
-	SMTPFrom     string
+	ResendAPIKey string
+	EmailFrom    string
 
 	TelegramBotToken string
 }
@@ -41,11 +37,8 @@ func Load() (*Config, error) {
 		GoogleClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
 		GitHubClientID:     os.Getenv("GITHUB_CLIENT_ID"),
 		GitHubClientSecret: os.Getenv("GITHUB_CLIENT_SECRET"),
-		SMTPHost:           os.Getenv("SMTP_HOST"),
-		SMTPPort:           intEnv("SMTP_PORT", 587),
-		SMTPUser:           os.Getenv("SMTP_USER"),
-		SMTPPassword:       os.Getenv("SMTP_PASSWORD"),
-		SMTPFrom:           getenv("SMTP_FROM", "alerts@pingdan.local"),
+		ResendAPIKey:       os.Getenv("RESEND_API_KEY"),
+		EmailFrom:          getenv("EMAIL_FROM", "alerts@pingdan.local"),
 		TelegramBotToken:   os.Getenv("TELEGRAM_BOT_TOKEN"),
 	}
 
@@ -61,15 +54,6 @@ func Load() (*Config, error) {
 func getenv(k, def string) string {
 	if v := os.Getenv(k); v != "" {
 		return v
-	}
-	return def
-}
-
-func intEnv(k string, def int) int {
-	if v := os.Getenv(k); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			return n
-		}
 	}
 	return def
 }

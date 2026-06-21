@@ -60,12 +60,12 @@ export default function AboutPage() {
             <div className="contact-card">
               <h3>Support</h3>
               <p className="muted">For help with your account or monitors.</p>
-              <p><a href="mailto:support@pingdan.com">support@pingdan.com</a></p>
+              <p><a href="mailto:support@pingdan.dev">support@pingdan.dev</a></p>
             </div>
             <div className="contact-card">
               <h3>Sales</h3>
               <p className="muted">For Team plans and volume pricing.</p>
-              <p><a href="mailto:sales@pingdan.com">sales@pingdan.com</a></p>
+              <p><a href="mailto:sales@pingdan.dev">sales@pingdan.dev</a></p>
             </div>
           </div>
         </div>

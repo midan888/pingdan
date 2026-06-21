@@ -57,3 +57,70 @@ export type AlertChannel = {
   label: string;
   config: Record<string, unknown>;
 };
+
+/** Human-friendly label for a check interval in seconds. */
+export function intervalLabel(sec: number): string {
+  if (sec % 60 === 0) return `${sec / 60} min`;
+  return `${sec}s`;
+}
+
+export type AssertionSource =
+  | "status_code"
+  | "response_time"
+  | "header"
+  | "body"
+  | "json_path";
+
+export type AssertionComparison =
+  | "equals"
+  | "not_equals"
+  | "greater_than"
+  | "less_than"
+  | "contains"
+  | "not_contains"
+  | "matches";
+
+export type Assertion = {
+  id?: number;
+  source: AssertionSource;
+  property: string;
+  comparison: AssertionComparison;
+  target: string;
+};
+
+export type FailedAssertion = {
+  source: AssertionSource;
+  property?: string;
+  comparison: AssertionComparison;
+  target: string;
+  actual: string;
+  passed: boolean;
+};
+
+export type Check = {
+  id: number;
+  endpointId: string;
+  statusCode?: number;
+  latencyMs?: number;
+  ok: boolean;
+  error?: string;
+  failedAssertions?: FailedAssertion[];
+  checkedAt: string;
+};
+
+export type EndpointStats = {
+  total: number;
+  upCount: number;
+  uptimePct: number;
+  avgLatencyMs: number | null;
+  p50LatencyMs: number | null;
+  p95LatencyMs: number | null;
+  minLatencyMs: number | null;
+  maxLatencyMs: number | null;
+};
+
+export type EndpointDetail = {
+  endpoint: Endpoint;
+  assertions: Assertion[];
+  channelIds: string[];
+};

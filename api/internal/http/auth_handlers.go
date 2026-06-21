@@ -1,6 +1,8 @@
 package httpx
 
 import (
+	"encoding/json"
+	"errors"
 	"net/http"
 	"net/url"
 	"time"
@@ -11,12 +13,15 @@ import (
 
 type AuthHandlers struct {
 	OAuth       *auth.OAuth
+	Email       *auth.Email
 	FrontendURL string
 }
 
 func (h *AuthHandlers) Routes(r chi.Router) {
 	r.Get("/auth/{provider}/start", h.start)
 	r.Get("/auth/{provider}/callback", h.callback)
+	r.Post("/auth/email/register", h.emailRegister)
+	r.Post("/auth/email/login", h.emailLogin)
 }
 
 func (h *AuthHandlers) start(w http.ResponseWriter, r *http.Request) {
@@ -69,4 +74,49 @@ func (h *AuthHandlers) callback(w http.ResponseWriter, r *http.Request) {
 	}
 	redirect := h.FrontendURL + "/auth/callback?token=" + url.QueryEscape(jwtTok)
 	http.Redirect(w, r, redirect, http.StatusTemporaryRedirect)
+}
+
+type emailCreds struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+	Name     string `json:"name"`
+}
+
+func (h *AuthHandlers) emailRegister(w http.ResponseWriter, r *http.Request) {
+	var in emailCreds
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+		http.Error(w, "invalid body", http.StatusBadRequest)
+		return
+	}
+	tok, err := h.Email.Register(r.Context(), in.Email, in.Password, in.Name)
+	if err != nil {
+		switch {
+		case errors.Is(err, auth.ErrEmailTaken):
+			http.Error(w, err.Error(), http.StatusConflict)
+		case errors.Is(err, auth.ErrWeakPassword):
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		default:
+			http.Error(w, err.Error(), http.StatusBadRequest)
+		}
+		return
+	}
+	WriteJSON(w, http.StatusCreated, map[string]string{"token": tok})
+}
+
+func (h *AuthHandlers) emailLogin(w http.ResponseWriter, r *http.Request) {
+	var in emailCreds
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+		http.Error(w, "invalid body", http.StatusBadRequest)
+		return
+	}
+	tok, err := h.Email.Login(r.Context(), in.Email, in.Password)
+	if err != nil {
+		if errors.Is(err, auth.ErrInvalidCredentials) {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+			return
+		}
+		http.Error(w, "login failed", http.StatusInternalServerError)
+		return
+	}
+	WriteJSON(w, http.StatusOK, map[string]string{"token": tok})
 }

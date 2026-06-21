@@ -80,21 +80,55 @@ jobs:
           WEB_IMAGE: ${{ env.WEB_IMAGE }}:${{ needs.build.outputs.sha_tag }}
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEPLOY_DIR: ${{ secrets.DEPLOY_DIR }}
+          APP_DOMAIN: ${{ vars.APP_DOMAIN }}
+          API_DOMAIN: ${{ vars.API_DOMAIN }}
+          ACME_EMAIL: ${{ vars.ACME_EMAIL }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          GITHUB_CLIENT_ID: ${{ secrets.GH_OAUTH_CLIENT_ID }}
+          GITHUB_CLIENT_SECRET: ${{ secrets.GH_OAUTH_CLIENT_SECRET }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ vars.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          SMTP_FROM: ${{ vars.SMTP_FROM }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
           password: ${{ secrets.SSH_PASSWORD }}
           port: ${{ secrets.SSH_PORT || 22 }}
-          envs: API_IMAGE,WEB_IMAGE,GHCR_USER,GHCR_TOKEN
+          envs: API_IMAGE,WEB_IMAGE,GHCR_USER,GHCR_TOKEN,DEPLOY_DIR,APP_DOMAIN,API_DOMAIN,ACME_EMAIL,POSTGRES_PASSWORD,JWT_SECRET,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,GITHUB_CLIENT_ID,GITHUB_CLIENT_SECRET,SMTP_HOST,SMTP_PORT,SMTP_USER,SMTP_PASSWORD,SMTP_FROM,TELEGRAM_BOT_TOKEN
           script: |
             set -euo pipefail
-            cd "${{ secrets.DEPLOY_DIR }}"
+            mkdir -p "$DEPLOY_DIR"
+            cd "$DEPLOY_DIR"
 
             echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
 
-            # update API_IMAGE / WEB_IMAGE in .env (file must exist with secrets pre-populated)
-            sed -i "s|^API_IMAGE=.*|API_IMAGE=${API_IMAGE}|" .env
-            sed -i "s|^WEB_IMAGE=.*|WEB_IMAGE=${WEB_IMAGE}|" .env
+            umask 077
+            cat > .env <<EOF
+            APP_DOMAIN=${APP_DOMAIN}
+            API_DOMAIN=${API_DOMAIN}
+            ACME_EMAIL=${ACME_EMAIL}
+            API_IMAGE=${API_IMAGE}
+            WEB_IMAGE=${WEB_IMAGE}
+            POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+            JWT_SECRET=${JWT_SECRET}
+            GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+            GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+            GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID}
+            GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET}
+            SMTP_HOST=${SMTP_HOST}
+            SMTP_PORT=${SMTP_PORT}
+            SMTP_USER=${SMTP_USER}
+            SMTP_PASSWORD=${SMTP_PASSWORD}
+            SMTP_FROM=${SMTP_FROM}
+            TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+            EOF
 
             docker compose -f docker-compose.prod.yml --env-file .env pull
             docker compose -f docker-compose.prod.yml --env-file .env up -d --remove-orphans

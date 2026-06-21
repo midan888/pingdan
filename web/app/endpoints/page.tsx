@@ -1,19 +1,19 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Nav } from "@/components/Nav";
-import { api, getToken, type Endpoint } from "@/lib/api";
+import { api, getToken, intervalLabel, type Endpoint } from "@/lib/api";
 
 export default function EndpointsPage() {
   const router = useRouter();
   const [items, setItems] = useState<Endpoint[]>([]);
-  const [name, setName] = useState("");
-  const [url, setUrl] = useState("");
-  const [intervalSec, setIntervalSec] = useState(60);
+  const [loading, setLoading] = useState(true);
 
   async function refresh() {
     setItems(await api<Endpoint[]>("/endpoints"));
+    setLoading(false);
   }
 
   useEffect(() => {
@@ -21,72 +21,63 @@ export default function EndpointsPage() {
       router.replace("/login");
       return;
     }
-    refresh();
+    refresh().catch(() => setLoading(false));
   }, [router]);
-
-  async function add(ev: FormEvent) {
-    ev.preventDefault();
-    await api("/endpoints", {
-      method: "POST",
-      body: JSON.stringify({ name, url, intervalSec }),
-    });
-    setName("");
-    setUrl("");
-    setIntervalSec(60);
-    refresh();
-  }
-
-  async function remove(id: string) {
-    if (!confirm("Delete this endpoint?")) return;
-    await api(`/endpoints/${id}`, { method: "DELETE" });
-    refresh();
-  }
 
   return (
     <>
       <Nav />
       <div className="container">
-        <h1>Endpoints</h1>
-
-        <form className="card" onSubmit={add}>
-          <h3>Add endpoint</h3>
-          <div className="grid grid-2">
-            <input placeholder="Name (e.g. Production API)" value={name} onChange={(e) => setName(e.target.value)} required />
-            <input placeholder="https://api.example.com/healthz" value={url} onChange={(e) => setUrl(e.target.value)} required />
-            <input type="number" min={10} placeholder="Interval (seconds)" value={intervalSec} onChange={(e) => setIntervalSec(Number(e.target.value))} />
-            <button type="submit">Add</button>
+        <div className="page-head">
+          <div>
+            <h1>Endpoints</h1>
+            <div className="subtitle">{items.length} monitored endpoint{items.length === 1 ? "" : "s"}</div>
           </div>
-        </form>
-
-        <div style={{ marginTop: "1.5rem" }}>
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>URL</th>
-                <th>State</th>
-                <th>Interval</th>
-                <th>Last check</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((e) => (
-                <tr key={e.id}>
-                  <td>{e.name}</td>
-                  <td><a href={e.url} target="_blank" rel="noreferrer">{e.url}</a></td>
-                  <td><span className={`badge-${e.currentState}`}>{e.currentState}</span></td>
-                  <td>{e.intervalSec}s</td>
-                  <td>{e.lastCheckedAt ? new Date(e.lastCheckedAt).toLocaleString() : "—"}</td>
-                  <td><button onClick={() => remove(e.id)}>Delete</button></td>
-                </tr>
-              ))}
-              {items.length === 0 && (
-                <tr><td colSpan={6} style={{ color: "#a1a1aa" }}>No endpoints yet.</td></tr>
-              )}
-            </tbody>
-          </table>
+          <Link href="/endpoints/new"><button className="primary">+ New endpoint</button></Link>
         </div>
+
+        {loading ? (
+          <p className="muted">Loading…</p>
+        ) : items.length === 0 ? (
+          <div className="empty">
+            <p>No endpoints yet.</p>
+            <Link href="/endpoints/new"><button className="primary">Create your first endpoint</button></Link>
+          </div>
+        ) : (
+          <div className="card" style={{ padding: 0 }}>
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>URL</th>
+                  <th>State</th>
+                  <th>Interval</th>
+                  <th>Last check</th>
+                </tr>
+              </thead>
+              <tbody>
+                {items.map((e) => (
+                  <tr
+                    key={e.id}
+                    style={{ cursor: "pointer" }}
+                    onClick={() => router.push(`/endpoints/${e.id}`)}
+                  >
+                    <td>
+                      <div className="row">
+                        <span className={`dot ${e.currentState}`} />
+                        <strong>{e.name}</strong>
+                      </div>
+                    </td>
+                    <td className="mono muted">{e.method} {e.url}</td>
+                    <td><span className={`pill ${e.currentState}`}>{e.currentState}</span></td>
+                    <td className="num">{intervalLabel(e.intervalSec)}</td>
+                    <td className="mono muted">{e.lastCheckedAt ? new Date(e.lastCheckedAt).toLocaleString() : "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </>
   );

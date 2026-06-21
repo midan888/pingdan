@@ -16,6 +16,7 @@ import (
 	"github.com/joho/godotenv"
 
 	"github.com/pingdan/api/internal/alerts"
+	"github.com/pingdan/api/internal/assertions"
 	"github.com/pingdan/api/internal/auth"
 	"github.com/pingdan/api/internal/checks"
 	"github.com/pingdan/api/internal/config"
@@ -55,16 +56,18 @@ func main() {
 		cfg.GoogleClientID, cfg.GoogleClientSecret,
 		cfg.GitHubClientID, cfg.GitHubClientSecret,
 	)
+	emailSvc := auth.NewEmail(pool, jwt)
 
 	endpointStore := &endpoints.Store{Pool: pool}
 	checkStore := &checks.Store{Pool: pool}
+	assertionStore := &assertions.Store{Pool: pool}
 	dispatcher := &alerts.Dispatcher{
 		Pool: pool, Logger: logger,
 		SMTPHost: cfg.SMTPHost, SMTPPort: cfg.SMTPPort,
 		SMTPUser: cfg.SMTPUser, SMTPPassword: cfg.SMTPPassword, SMTPFrom: cfg.SMTPFrom,
 		TelegramBotToken: cfg.TelegramBotToken,
 	}
-	scheduler := pinger.NewScheduler(ctx, endpointStore, checkStore, dispatcher, logger)
+	scheduler := pinger.NewScheduler(ctx, endpointStore, checkStore, assertionStore, dispatcher, logger)
 	if err := scheduler.Start(ctx); err != nil {
 		logger.Error("scheduler start", "err", err)
 		os.Exit(1)
@@ -83,7 +86,7 @@ func main() {
 
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("ok")) })
 
-	authH := &httpx.AuthHandlers{OAuth: oauthSvc, FrontendURL: cfg.FrontendURL}
+	authH := &httpx.AuthHandlers{OAuth: oauthSvc, Email: emailSvc, FrontendURL: cfg.FrontendURL}
 	authH.Routes(r)
 
 	r.Group(func(r chi.Router) {
@@ -92,7 +95,7 @@ func main() {
 			u := httpx.UserFrom(r.Context())
 			httpx.WriteJSON(w, 200, map[string]string{"id": u.ID, "email": u.Email})
 		})
-		epH := &httpx.EndpointHandlers{Store: endpointStore, Scheduler: scheduler}
+		epH := &httpx.EndpointHandlers{Store: endpointStore, Checks: checkStore, Assertions: assertionStore, Scheduler: scheduler, Pool: pool}
 		epH.Routes(r)
 		alH := &httpx.AlertHandlers{Pool: pool}
 		alH.Routes(r)

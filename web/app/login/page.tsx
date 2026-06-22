@@ -47,7 +47,6 @@ export default function LoginPage() {
 
           <div className="oauth-grid">
             <a href={`${API_URL}/auth/google/start`}><button type="button" className="oauth-btn">Google</button></a>
-            <a href={`${API_URL}/auth/github/start`}><button type="button" className="oauth-btn">GitHub</button></a>
           </div>
 
           <div className="divider">or continue with email</div>

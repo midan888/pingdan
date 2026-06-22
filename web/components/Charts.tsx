@@ -14,13 +14,30 @@ function fmtTime(iso: string): string {
 }
 
 /**
+ * downsample reduces an array to at most `max` evenly-spaced items, preserving
+ * the first and last. Keeps bars/segments from overflowing the container when a
+ * wide time window returns more checks than there are pixels to draw them.
+ */
+function downsample<T>(arr: T[], max: number): T[] {
+  if (arr.length <= max) return arr;
+  const step = arr.length / max;
+  const out: T[] = [];
+  for (let i = 0; i < max; i++) out.push(arr[Math.floor(i * step)]);
+  return out;
+}
+
+// Upper bound on how many bars/segments we draw; beyond this they'd be
+// sub-pixel and the flex row overflows its container.
+const MAX_BARS = 240;
+
+/**
  * ResponseTimeChart renders one bar per check (oldest → newest, left → right).
  * Bar height = latency, colour = pass/fail. Hover shows a tooltip.
  */
 export function ResponseTimeChart({ checks, height = 140 }: { checks: Check[]; height?: number }) {
   const [tip, setTip] = useState<Tip>(null);
-  // checks come newest-first; show oldest on the left
-  const data = [...checks].reverse();
+  // checks come newest-first; show oldest on the left, capped so bars fit
+  const data = downsample([...checks].reverse(), MAX_BARS);
   if (data.length === 0) {
     return <div className="empty" style={{ padding: "2rem" }}>No checks recorded yet.</div>;
   }
@@ -86,7 +103,7 @@ export function ResponseTimeChart({ checks, height = 140 }: { checks: Check[]; h
  */
 export function StatusTimeline({ checks }: { checks: Check[] }) {
   const [tip, setTip] = useState<Tip>(null);
-  const data = [...checks].reverse();
+  const data = downsample([...checks].reverse(), MAX_BARS);
   if (data.length === 0) {
     return <div className="faint" style={{ fontSize: "0.8rem" }}>—</div>;
   }

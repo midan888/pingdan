@@ -298,7 +298,7 @@ td.num { font-variant-numeric: tabular-nums; }
 .divider { display: flex; align-items: center; gap: 0.75rem; color: var(--text-faint); font-size: 0.78rem; margin: 1.25rem 0; }
 .divider::before, .divider::after { content: ""; flex: 1; height: 1px; background: var(--border); }
 .error-text { color: var(--down); font-size: 0.82rem; margin-top: 0.5rem; }
-.oauth-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.oauth-grid { display: grid; grid-template-columns: 1fr; gap: 0.5rem; }
 .oauth-btn { display: flex; align-items: center; justify-content: center; gap: 0.5rem; width: 100%; padding: 0.55rem; }
 .auth-foot { text-align: center; margin-top: 1.5rem; color: var(--text-dim); font-size: 0.88rem; }
 

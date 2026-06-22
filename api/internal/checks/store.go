@@ -52,6 +52,31 @@ func (s *Store) Recent(ctx context.Context, endpointID string, limit int) ([]Che
 	return out, rows.Err()
 }
 
+// RecentSince returns checks within the given time window (newest first),
+// capped at limit to bound the response for high-frequency endpoints.
+func (s *Store) RecentSince(ctx context.Context, endpointID string, since time.Time, limit int) ([]Check, error) {
+	if limit <= 0 || limit > 2000 {
+		limit = 2000
+	}
+	rows, err := s.Pool.Query(ctx, `
+		SELECT id, endpoint_id, status_code, latency_ms, ok, error, failed_assertions, checked_at
+		FROM checks WHERE endpoint_id=$1 AND checked_at >= $2 ORDER BY checked_at DESC LIMIT $3
+	`, endpointID, since, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Check{}
+	for rows.Next() {
+		var c Check
+		if err := rows.Scan(&c.ID, &c.EndpointID, &c.StatusCode, &c.LatencyMs, &c.OK, &c.Error, &c.FailedAssertions, &c.CheckedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, c)
+	}
+	return out, rows.Err()
+}
+
 // Stats summarises recent checks within the given window for an endpoint.
 type Stats struct {
 	Total      int      `json:"total"`

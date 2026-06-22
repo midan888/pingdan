@@ -136,6 +136,20 @@ func (h *EndpointHandlers) listChecks(w http.ResponseWriter, r *http.Request) {
 			limit = n
 		}
 	}
+	// When a time window is given, filter checks to that window so the page's
+	// charts/timeline/table track the selected range (matching the stats handler).
+	if q := r.URL.Query().Get("hours"); q != "" {
+		if n, err := strconv.Atoi(q); err == nil && n > 0 && n <= 24*30 {
+			since := time.Now().Add(-time.Duration(n) * time.Hour)
+			out, err := h.Checks.RecentSince(r.Context(), e.ID, since, limit)
+			if err != nil {
+				http.Error(w, err.Error(), 500)
+				return
+			}
+			WriteJSON(w, 200, out)
+			return
+		}
+	}
 	out, err := h.Checks.Recent(r.Context(), e.ID, limit)
 	if err != nil {
 		http.Error(w, err.Error(), 500)

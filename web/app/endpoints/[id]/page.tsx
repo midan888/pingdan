@@ -46,7 +46,7 @@ export default function EndpointDetailPage() {
   const load = useCallback(async () => {
     const [detail, ck, st] = await Promise.all([
       api<EndpointDetail>(`/endpoints/${id}`),
-      api<Check[]>(`/endpoints/${id}/checks?limit=200`),
+      api<Check[]>(`/endpoints/${id}/checks?hours=${hours}&limit=2000`),
       api<EndpointStats>(`/endpoints/${id}/stats?hours=${hours}`),
     ]);
     setEndpoint(detail.endpoint);

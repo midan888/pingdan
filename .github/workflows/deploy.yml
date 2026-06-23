@@ -127,3 +127,16 @@ jobs:
             docker compose -f docker-compose.prod.yml --env-file .env pull
             docker compose -f docker-compose.prod.yml --env-file .env up -d --remove-orphans
             docker image prune -f
+
+      - name: Notify Telegram
+        if: always()
+        run: |
+          if [ "${{ job.status }}" = "success" ]; then
+            MESSAGE="✅ *pingdan* deployed successfully%0ACommit: \`${GITHUB_SHA::7}\`%0ABy: ${{ github.actor }}"
+          else
+            MESSAGE="❌ *pingdan* deploy failed%0ACommit: \`${GITHUB_SHA::7}\`%0ABy: ${{ github.actor }}"
+          fi
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -d chat_id=${{ vars.TELEGRAM_CHAT_ID }} \
+            -d text="$MESSAGE" \
+            -d parse_mode=Markdown

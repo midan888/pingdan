@@ -97,7 +97,7 @@ func main() {
 		})
 		epH := &httpx.EndpointHandlers{Store: endpointStore, Checks: checkStore, Assertions: assertionStore, Scheduler: scheduler, Pool: pool}
 		epH.Routes(r)
-		alH := &httpx.AlertHandlers{Pool: pool}
+		alH := &httpx.AlertHandlers{Pool: pool, Dispatcher: dispatcher}
 		alH.Routes(r)
 	})
 

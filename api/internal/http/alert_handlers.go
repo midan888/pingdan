@@ -6,15 +6,19 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/pingdan/api/internal/alerts"
 )
 
 type AlertHandlers struct {
-	Pool *pgxpool.Pool
+	Pool       *pgxpool.Pool
+	Dispatcher *alerts.Dispatcher
 }
 
 func (h *AlertHandlers) Routes(r chi.Router) {
 	r.Get("/alert-channels", h.list)
 	r.Post("/alert-channels", h.create)
+	r.Post("/alert-channels/test", h.test)
 	r.Delete("/alert-channels/{id}", h.delete)
 	r.Post("/endpoints/{id}/channels/{channelId}", h.attach)
 	r.Delete("/endpoints/{id}/channels/{channelId}", h.detach)
@@ -70,6 +74,29 @@ func (h *AlertHandlers) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	WriteJSON(w, 201, in)
+}
+
+// test sends a test notification to the given channel config without persisting it,
+// so users can verify a channel works from the create/edit form before (or after) saving.
+func (h *AlertHandlers) test(w http.ResponseWriter, r *http.Request) {
+	var in alertChannel
+	if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+		http.Error(w, "bad json", 400)
+		return
+	}
+	if in.Kind != "email" && in.Kind != "telegram" {
+		http.Error(w, "kind must be email|telegram", 400)
+		return
+	}
+	if len(in.Config) == 0 {
+		http.Error(w, "config required", 400)
+		return
+	}
+	if err := h.Dispatcher.SendTest(r.Context(), in.Kind, in.Config); err != nil {
+		http.Error(w, err.Error(), 502)
+		return
+	}
+	w.WriteHeader(204)
 }
 
 func (h *AlertHandlers) delete(w http.ResponseWriter, r *http.Request) {

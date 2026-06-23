@@ -42,8 +42,15 @@ export default function ChannelsPage() {
   const [value, setValue] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [formNote, setFormNote] = useState<string | null>(null);
+  const [testingId, setTestingId] = useState<string | null>(null);
 
   const active = KINDS.find((k) => k.value === kind)!;
+
+  function configFor(k: Kind, v: string) {
+    return k === "email" ? { to: v.trim() } : { chatId: v.trim() };
+  }
 
   async function refresh() {
     setItems(await api<AlertChannel[]>("/alert-channels"));
@@ -68,10 +75,9 @@ export default function ChannelsPage() {
     setError(null);
     setSaving(true);
     try {
-      const config = kind === "email" ? { to: value.trim() } : { chatId: value.trim() };
       await api("/alert-channels", {
         method: "POST",
-        body: JSON.stringify({ kind, label: label.trim(), config }),
+        body: JSON.stringify({ kind, label: label.trim(), config: configFor(kind, value) }),
       });
       setLabel("");
       setValue("");
@@ -80,6 +86,43 @@ export default function ChannelsPage() {
       setError(e instanceof Error ? e.message : "Failed to add channel");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function sendTestForm() {
+    const err = validate(kind, value);
+    if (err) {
+      setError(err);
+      return;
+    }
+    setError(null);
+    setFormNote(null);
+    setTesting(true);
+    try {
+      await api("/alert-channels/test", {
+        method: "POST",
+        body: JSON.stringify({ kind, config: configFor(kind, value) }),
+      });
+      setFormNote("Test alert sent — check your inbox/chat.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to send test alert");
+    } finally {
+      setTesting(false);
+    }
+  }
+
+  async function testChannel(c: AlertChannel) {
+    setTestingId(c.id);
+    try {
+      await api("/alert-channels/test", {
+        method: "POST",
+        body: JSON.stringify({ kind: c.kind, config: c.config }),
+      });
+      alert(`Test alert sent to "${c.label}". Check your inbox/chat.`);
+    } catch (e) {
+      alert(`Test failed: ${e instanceof Error ? e.message : "unknown error"}`);
+    } finally {
+      setTestingId(null);
     }
   }
 
@@ -113,7 +156,7 @@ export default function ChannelsPage() {
                     type="button"
                     key={k.value}
                     className={`chip ${kind === k.value ? "selected" : ""}`}
-                    onClick={() => { setKind(k.value); setError(null); }}
+                    onClick={() => { setKind(k.value); setError(null); setFormNote(null); }}
                   >
                     <span aria-hidden>{k.icon}</span> {k.label}
                   </button>
@@ -137,7 +180,7 @@ export default function ChannelsPage() {
               <input
                 placeholder={active.placeholder}
                 value={value}
-                onChange={(e) => { setValue(e.target.value); if (error) setError(null); }}
+                onChange={(e) => { setValue(e.target.value); if (error) setError(null); if (formNote) setFormNote(null); }}
                 inputMode={kind === "telegram" ? "numeric" : "email"}
                 required
               />
@@ -145,10 +188,21 @@ export default function ChannelsPage() {
             </div>
 
             {error && <p className="error-text">{error}</p>}
+            {formNote && <p className="hint" style={{ color: "var(--ok, #16a34a)" }}>{formNote}</p>}
 
-            <button type="submit" className="primary" style={{ width: "100%", marginTop: "0.25rem" }} disabled={saving}>
-              {saving ? "Adding…" : "Add channel"}
-            </button>
+            <div className="row" style={{ gap: "0.5rem", marginTop: "0.25rem" }}>
+              <button
+                type="button"
+                onClick={sendTestForm}
+                disabled={testing || saving}
+                style={{ flex: "0 0 auto" }}
+              >
+                {testing ? "Sending…" : "Send test"}
+              </button>
+              <button type="submit" className="primary" style={{ flex: 1 }} disabled={saving || testing}>
+                {saving ? "Adding…" : "Add channel"}
+              </button>
+            </div>
           </form>
 
           {/* List */}
@@ -178,7 +232,12 @@ export default function ChannelsPage() {
                             </div>
                           </div>
                         </div>
-                        <button className="danger" onClick={() => remove(c.id, c.label)}>Delete</button>
+                        <div className="row" style={{ gap: "0.4rem" }}>
+                          <button onClick={() => testChannel(c)} disabled={testingId === c.id}>
+                            {testingId === c.id ? "Testing…" : "Test"}
+                          </button>
+                          <button className="danger" onClick={() => remove(c.id, c.label)}>Delete</button>
+                        </div>
                       </div>
                     </div>
                   );

@@ -2,12 +2,20 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { MarketingNav } from "@/components/MarketingNav";
 import { Footer } from "@/components/Footer";
+import { JsonLd, Breadcrumbs } from "@/components/JsonLd";
+
+const description =
+  "pingdan is free. Every feature included — unlimited monitors, 1-minute intervals, all alert channels, and full history. No credit card required.";
 
 export const metadata: Metadata = {
   title: "Pricing — pingdan",
-  description:
-    "pingdan is free. Every feature included — unlimited monitors, 1-minute intervals, all alert channels, and full history. No credit card required.",
+  description,
   alternates: { canonical: "/pricing" },
+  openGraph: {
+    title: "Pricing — pingdan",
+    description,
+    url: "/pricing",
+  },
 };
 
 const plans = [
@@ -29,9 +37,21 @@ const faqs = [
   { q: "How do alerts work?", a: "When an endpoint fails its assertions for your configured threshold, we notify the channels attached to it — email and/or Telegram." },
 ];
 
+const faqJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: faqs.map((f) => ({
+    "@type": "Question",
+    name: f.q,
+    acceptedAnswer: { "@type": "Answer", text: f.a },
+  })),
+};
+
 export default function PricingPage() {
   return (
     <div className="mkt">
+      <JsonLd data={faqJsonLd} />
+      <Breadcrumbs trail={[{ name: "Pricing", path: "/pricing" }]} />
       <MarketingNav />
 
       <section className="hero" style={{ padding: "4rem 0 1rem" }}>

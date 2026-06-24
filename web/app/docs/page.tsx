@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { MarketingNav } from "@/components/MarketingNav";
 import { Footer } from "@/components/Footer";
+import { Breadcrumbs } from "@/components/JsonLd";
 
 export const metadata: Metadata = {
   title: "Docs — How pingdan works",
@@ -19,6 +20,7 @@ const toc = [
 export default function DocsPage() {
   return (
     <div className="mkt">
+      <Breadcrumbs trail={[{ name: "Docs", path: "/docs" }]} />
       <MarketingNav />
 
       <section className="mkt-section tight">

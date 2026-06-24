@@ -3,6 +3,9 @@ import type { Metadata } from "next";
 import { MarketingNav } from "@/components/MarketingNav";
 import { Footer } from "@/components/Footer";
 import { MiniDashboardPreview } from "@/components/MiniDashboardPreview";
+import { JsonLd } from "@/components/JsonLd";
+
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://pingdan.dev";
 
 export const metadata: Metadata = {
   title: "pingdan — Uptime & API monitoring with deep assertions",
@@ -27,9 +30,26 @@ const stats = [
   { n: "2", l: "Alert channels" },
 ];
 
+const appJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "pingdan",
+  applicationCategory: "DeveloperApplication",
+  operatingSystem: "Web",
+  url: siteUrl,
+  description:
+    "Uptime & API monitoring with deep assertions on status, headers, body and JSON path. Response-time charts, uptime history, and instant email & Telegram alerts.",
+  offers: {
+    "@type": "Offer",
+    price: "0",
+    priceCurrency: "USD",
+  },
+};
+
 export default function Landing() {
   return (
     <div className="mkt">
+      <JsonLd data={appJsonLd} />
       <MarketingNav />
 
       {/* hero */}
@@ -45,7 +65,7 @@ export default function Landing() {
             <Link href="/register"><button className="primary btn-lg">Start monitoring free</button></Link>
             <Link href="/docs"><button className="btn-lg">Read the docs</button></Link>
           </div>
-          <div className="trust">No credit card · Free tier · Cancel anytime</div>
+          <div className="trust">No credit card · Free forever · Every feature included</div>
           <MiniDashboardPreview />
         </div>
       </section>

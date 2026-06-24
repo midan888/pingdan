@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { MarketingNav } from "@/components/MarketingNav";
 import { Footer } from "@/components/Footer";
+import { Breadcrumbs } from "@/components/JsonLd";
 
 export const metadata: Metadata = {
   title: "Features — pingdan uptime & API monitoring",
@@ -47,6 +48,7 @@ const groups = [
 export default function FeaturesPage() {
   return (
     <div className="mkt">
+      <Breadcrumbs trail={[{ name: "Features", path: "/features" }]} />
       <MarketingNav />
 
       <section className="hero" style={{ padding: "4rem 0 1rem" }}>

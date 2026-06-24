@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { MarketingNav } from "@/components/MarketingNav";
 import { Footer } from "@/components/Footer";
+import { Breadcrumbs } from "@/components/JsonLd";
 
 export const metadata: Metadata = {
   title: "About & Contact — pingdan",
@@ -19,6 +20,7 @@ const values = [
 export default function AboutPage() {
   return (
     <div className="mkt">
+      <Breadcrumbs trail={[{ name: "About", path: "/about" }]} />
       <MarketingNav />
 
       <section className="hero" style={{ padding: "4rem 0 1rem" }}>
@@ -63,9 +65,9 @@ export default function AboutPage() {
               <p><a href="mailto:support@pingdan.dev">support@pingdan.dev</a></p>
             </div>
             <div className="contact-card">
-              <h3>Sales</h3>
-              <p className="muted">For Team plans and volume pricing.</p>
-              <p><a href="mailto:sales@pingdan.dev">sales@pingdan.dev</a></p>
+              <h3>Feedback</h3>
+              <p className="muted">Feature requests and product feedback.</p>
+              <p><a href="mailto:hello@pingdan.dev">hello@pingdan.dev</a></p>
             </div>
           </div>
         </div>

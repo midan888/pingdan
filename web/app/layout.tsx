@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
+import { JsonLd } from "@/components/JsonLd";
 import "./globals.css";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://pingdan.dev";
@@ -35,13 +36,46 @@ export const metadata: Metadata = {
     description:
       "Monitor HTTP endpoints with deep assertions, response-time charts, and instant alerts.",
   },
-  robots: { index: true, follow: true },
+  alternates: { canonical: "/" },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, "max-image-preview": "large", "max-snippet": -1 },
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0b1120",
+};
+
+const orgJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: "pingdan",
+  url: siteUrl,
+  logo: `${siteUrl}/icon.png`,
+  contactPoint: {
+    "@type": "ContactPoint",
+    email: "support@pingdan.dev",
+    contactType: "customer support",
+  },
+};
+
+const siteJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: "pingdan",
+  url: siteUrl,
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <JsonLd data={orgJsonLd} />
+        <JsonLd data={siteJsonLd} />
+        {children}
+      </body>
     </html>
   );
 }

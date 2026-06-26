@@ -48,6 +48,10 @@ export default function DashboardPage() {
     rows.length > 0
       ? rows.reduce((acc, r) => acc + (r.stats?.uptimePct ?? 0), 0) / rows.length
       : null;
+  const failedChecks = rows.reduce(
+    (acc, r) => acc + (r.stats ? r.stats.total - r.stats.upCount : 0),
+    0
+  );
 
   return (
     <>
@@ -62,7 +66,7 @@ export default function DashboardPage() {
         </div>
 
         {/* summary cards */}
-        <div className="grid grid-4" style={{ marginBottom: "1.5rem" }}>
+        <div className="grid grid-5" style={{ marginBottom: "1.5rem" }}>
           <div className="card stat">
             <div className="label">Operational</div>
             <div className="value" style={{ color: "var(--up)" }}>{up}</div>
@@ -74,6 +78,10 @@ export default function DashboardPage() {
           <div className="card stat">
             <div className="label">Pending</div>
             <div className="value">{unknown}</div>
+          </div>
+          <div className="card stat">
+            <div className="label">Failed checks (24h)</div>
+            <div className="value" style={{ color: failedChecks > 0 ? "var(--down)" : undefined }}>{failedChecks}</div>
           </div>
           <div className="card stat">
             <div className="label">Avg uptime (24h)</div>

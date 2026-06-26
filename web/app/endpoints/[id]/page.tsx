@@ -86,6 +86,8 @@ export default function EndpointDetailPage() {
     router.push("/endpoints");
   }
 
+  const failedChecks = stats ? stats.total - stats.upCount : 0;
+
   if (loading) {
     return (
       <>
@@ -172,12 +174,12 @@ export default function EndpointDetailPage() {
                 <div className="value">{fmtMs(stats?.avgLatencyMs)}</div>
               </div>
               <div className="card stat">
-                <div className="label">P95 response</div>
-                <div className="value">{fmtMs(stats?.p95LatencyMs)}</div>
-              </div>
-              <div className="card stat">
                 <div className="label">Checks</div>
                 <div className="value">{stats?.total ?? 0}</div>
+              </div>
+              <div className="card stat">
+                <div className="label">Failed checks</div>
+                <div className="value" style={{ color: failedChecks > 0 ? "var(--down)" : undefined }}>{failedChecks}</div>
               </div>
             </div>
 
@@ -211,7 +213,7 @@ export default function EndpointDetailPage() {
               <div className="spread" style={{ marginBottom: "0.75rem" }}>
                 <h3 style={{ margin: 0 }}>Response time</h3>
                 <span className="faint" style={{ fontSize: "0.78rem" }}>
-                  p50 {fmtMs(stats?.p50LatencyMs)} · min {fmtMs(stats?.minLatencyMs)} · max {fmtMs(stats?.maxLatencyMs)}
+                  p50 {fmtMs(stats?.p50LatencyMs)} · p95 {fmtMs(stats?.p95LatencyMs)} · min {fmtMs(stats?.minLatencyMs)} · max {fmtMs(stats?.maxLatencyMs)}
                 </span>
               </div>
               <ResponseTimeChart checks={checks} />

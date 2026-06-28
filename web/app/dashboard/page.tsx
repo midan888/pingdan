@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Nav } from "@/components/Nav";
 import { Sparkline, MiniStatusBar } from "@/components/Charts";
-import { api, getToken, type Check, type Endpoint, type EndpointStats, type Group } from "@/lib/api";
+import { api, getToken, groupColor, type Check, type Endpoint, type EndpointStats, type Group } from "@/lib/api";
 
 type Row = { endpoint: Endpoint; checks: Check[]; stats: EndpointStats | null };
 
@@ -177,11 +177,12 @@ export default function DashboardPage() {
             <Link href="/endpoints/new"><button className="primary">Create your first endpoint</button></Link>
           </div>
         ) : (
-          sections.map((section) => {
+          sections.map((section, i) => {
             const sUp = section.rows.filter((r) => r.endpoint.currentState === "up").length;
             const sDown = section.rows.filter((r) => r.endpoint.currentState === "down").length;
+            const accent = section.id === UNGROUPED ? "var(--unknown)" : groupColor(i);
             return (
-              <section key={section.id} className="group-section">
+              <section key={section.id} className="group-section" style={{ ["--group-accent" as string]: accent }}>
                 <div className="group-header">
                   <h2>{section.name}</h2>
                   <span className="group-count">{section.rows.length}</span>

@@ -41,6 +41,24 @@ export type Group = {
   createdAt: string;
 };
 
+/**
+ * Distinct accent colors cycled across group sections so adjacent groups are
+ * instantly distinguishable. Indexed by the group's position in the list.
+ */
+export const GROUP_COLORS = [
+  "#4493f8", // blue
+  "#3fb950", // green
+  "#bc8cff", // purple
+  "#d29922", // amber
+  "#f778ba", // pink
+  "#39c5cf", // cyan
+  "#ff7b72", // coral
+] as const;
+
+export function groupColor(index: number): string {
+  return GROUP_COLORS[index % GROUP_COLORS.length];
+}
+
 export type Endpoint = {
   id: string;
   groupId: string | null;

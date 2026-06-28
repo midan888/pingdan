@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Nav } from "@/components/Nav";
-import { api, getToken, intervalLabel, daysUntil, sslSeverity, type Endpoint, type Group } from "@/lib/api";
+import { api, getToken, intervalLabel, daysUntil, sslSeverity, groupColor, type Endpoint, type Group } from "@/lib/api";
 
 const SSL_COLOR: Record<string, string | undefined> = {
   ok: "var(--up)",
@@ -91,10 +91,11 @@ export default function EndpointsPage() {
                   <th>Last check</th>
                 </tr>
               </thead>
-              {sections.map((section) => {
+              {sections.map((section, i) => {
                 const down = section.items.filter((e) => e.currentState === "down").length;
+                const accent = section.id === "__ungrouped__" ? "var(--unknown)" : groupColor(i);
                 return (
-                  <tbody key={section.id}>
+                  <tbody key={section.id} style={{ ["--group-accent" as string]: accent }}>
                     {sections.length > 1 && (
                       <tr className="group-row">
                         <td colSpan={6}>

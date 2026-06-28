@@ -20,6 +20,8 @@ RUN addgroup -g 1001 -S nodejs && adduser -S nextjs -u 1001
 COPY --from=build --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=build --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=build --chown=nextjs:nodejs /app/public ./public
+# Blog Markdown is read from the filesystem (lib/blog.ts) — keep it in the runtime image.
+COPY --from=build --chown=nextjs:nodejs /app/content ./content
 USER nextjs
 EXPOSE 3000
 CMD ["node", "server.js"]

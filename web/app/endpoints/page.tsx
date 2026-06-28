@@ -4,7 +4,24 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Nav } from "@/components/Nav";
-import { api, getToken, intervalLabel, type Endpoint, type Group } from "@/lib/api";
+import { api, getToken, intervalLabel, daysUntil, sslSeverity, type Endpoint, type Group } from "@/lib/api";
+
+const SSL_COLOR: Record<string, string | undefined> = {
+  ok: "var(--up)",
+  warn: "var(--warn)",
+  critical: "var(--down)",
+  expired: "var(--down)",
+};
+
+/** Compact SSL countdown cell for the endpoints table. */
+function SSLCell({ e }: { e: Endpoint }) {
+  if (!e.url.startsWith("https://")) return <span className="faint">—</span>;
+  if (!e.sslExpiresAt) return <span className="faint">{e.sslLastError ? "error" : "—"}</span>;
+  const d = daysUntil(e.sslExpiresAt);
+  const color = SSL_COLOR[sslSeverity(d)];
+  if (d < 0) return <span style={{ color }}>expired</span>;
+  return <span style={{ color }}>{d}d</span>;
+}
 
 export default function EndpointsPage() {
   const router = useRouter();
@@ -60,6 +77,7 @@ export default function EndpointsPage() {
                   <th>Group</th>
                   <th>URL</th>
                   <th>State</th>
+                  <th>SSL</th>
                   <th>Interval</th>
                   <th>Last check</th>
                 </tr>
@@ -80,6 +98,7 @@ export default function EndpointsPage() {
                     <td className="muted">{groupName(e.groupId) ?? <span className="faint">—</span>}</td>
                     <td className="mono muted">{e.method} {e.url}</td>
                     <td><span className={`pill ${e.currentState}`}>{e.currentState}</span></td>
+                    <td className="num mono"><SSLCell e={e} /></td>
                     <td className="num">{intervalLabel(e.intervalSec)}</td>
                     <td className="mono muted">{e.lastCheckedAt ? new Date(e.lastCheckedAt).toLocaleString() : "—"}</td>
                   </tr>

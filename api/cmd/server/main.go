@@ -25,6 +25,7 @@ import (
 	"github.com/pingdan/api/internal/groups"
 	httpx "github.com/pingdan/api/internal/http"
 	"github.com/pingdan/api/internal/pinger"
+	"github.com/pingdan/api/internal/sslcheck"
 )
 
 func main() {
@@ -75,6 +76,10 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Daily TLS-certificate expiry monitor for HTTPS endpoints.
+	sslChecker := sslcheck.New(endpointStore, dispatcher, logger)
+	go sslChecker.Run(ctx)
+
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID, middleware.RealIP, middleware.Recoverer)
 	r.Use(middleware.Timeout(30 * time.Second))
@@ -97,7 +102,7 @@ func main() {
 			u := httpx.UserFrom(r.Context())
 			httpx.WriteJSON(w, 200, map[string]string{"id": u.ID, "email": u.Email})
 		})
-		epH := &httpx.EndpointHandlers{Store: endpointStore, Checks: checkStore, Assertions: assertionStore, Scheduler: scheduler, Pool: pool}
+		epH := &httpx.EndpointHandlers{Store: endpointStore, Checks: checkStore, Assertions: assertionStore, Scheduler: scheduler, SSL: sslChecker, Pool: pool}
 		epH.Routes(r)
 		alH := &httpx.AlertHandlers{Pool: pool, Dispatcher: dispatcher}
 		alH.Routes(r)

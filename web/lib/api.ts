@@ -56,7 +56,27 @@ export type Endpoint = {
   consecutiveFailures: number;
   lastCheckedAt: string | null;
   createdAt: string;
+  sslExpiresAt: string | null;
+  sslLastCheckedAt: string | null;
+  sslLastError: string | null;
 };
+
+/** Daily warnings begin at or below this many days to expiry. */
+export const SSL_ALERT_THRESHOLD_DAYS = 15;
+
+/** Whole days until an ISO timestamp, rounded down. Negative = already past. */
+export function daysUntil(iso: string): number {
+  const ms = new Date(iso).getTime() - Date.now();
+  return Math.floor(ms / 86_400_000);
+}
+
+/** Severity bucket for an SSL countdown, used to colour the UI. */
+export function sslSeverity(daysLeft: number): "ok" | "warn" | "critical" | "expired" {
+  if (daysLeft < 0) return "expired";
+  if (daysLeft <= SSL_ALERT_THRESHOLD_DAYS) return "critical";
+  if (daysLeft <= 30) return "warn";
+  return "ok";
+}
 
 export type AlertChannel = {
   id: string;

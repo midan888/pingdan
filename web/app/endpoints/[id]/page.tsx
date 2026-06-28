@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Nav } from "@/components/Nav";
@@ -9,6 +9,9 @@ import { EndpointForm, EndpointFormValues } from "@/components/EndpointForm";
 import {
   api,
   getToken,
+  daysUntil,
+  sslSeverity,
+  SSL_ALERT_THRESHOLD_DAYS,
   type AlertChannel,
   type Assertion,
   type Check,
@@ -16,6 +19,72 @@ import {
   type EndpointDetail,
   type EndpointStats,
 } from "@/lib/api";
+
+const SSL_SEVERITY_COLOR: Record<string, string | undefined> = {
+  ok: "var(--up)",
+  warn: "var(--warn)",
+  critical: "var(--down)",
+  expired: "var(--down)",
+};
+
+function SSLCard({ endpoint, onChecked }: { endpoint: Endpoint; onChecked: (e: Endpoint) => void }) {
+  const [checking, setChecking] = useState(false);
+
+  // Only HTTPS endpoints have a certificate to monitor.
+  if (!endpoint.url.startsWith("https://")) return null;
+
+  async function checkNow() {
+    setChecking(true);
+    try {
+      const updated = await api<Endpoint>(`/endpoints/${endpoint.id}/ssl-check`, { method: "POST" });
+      onChecked(updated);
+    } catch {
+      /* surfaced via the error field on next load */
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  const expires = endpoint.sslExpiresAt;
+  const daysLeft = expires ? daysUntil(expires) : null;
+  const severity = daysLeft != null ? sslSeverity(daysLeft) : "ok";
+  const color = SSL_SEVERITY_COLOR[severity];
+
+  let headline: ReactNode;
+  if (endpoint.sslLastError && !expires) {
+    headline = <span style={{ color: "var(--down)" }}>Check failed</span>;
+  } else if (daysLeft == null) {
+    headline = <span className="faint">Not checked yet</span>;
+  } else if (daysLeft < 0) {
+    headline = <span style={{ color }}>Expired</span>;
+  } else {
+    headline = (
+      <span style={{ color }}>
+        {daysLeft} <small>{daysLeft === 1 ? "day left" : "days left"}</small>
+      </span>
+    );
+  }
+
+  return (
+    <div className="card stat" style={{ marginBottom: "1rem" }}>
+      <div className="spread">
+        <div className="label">SSL certificate</div>
+        <button className="ghost" onClick={checkNow} disabled={checking}>
+          {checking ? "Checking…" : "Check now"}
+        </button>
+      </div>
+      <div className="value" style={{ marginTop: "0.3rem" }}>{headline}</div>
+      <p className="faint" style={{ margin: "0.4rem 0 0", fontSize: "0.8rem" }}>
+        {expires && `Expires ${new Date(expires).toLocaleString()}. `}
+        {daysLeft != null && daysLeft >= 0 && daysLeft <= SSL_ALERT_THRESHOLD_DAYS && (
+          <span style={{ color: "var(--down)" }}>Daily renewal reminders are being sent. </span>
+        )}
+        {endpoint.sslLastError && <span style={{ color: "var(--down)" }}>{endpoint.sslLastError} </span>}
+        {endpoint.sslLastCheckedAt && `Last checked ${new Date(endpoint.sslLastCheckedAt).toLocaleString()}.`}
+      </p>
+    </div>
+  );
+}
 
 const RANGES = [
   { label: "1h", hours: 1 },
@@ -183,6 +252,9 @@ export default function EndpointDetailPage() {
                 <div className="value" style={{ color: failedChecks > 0 ? "var(--down)" : undefined }}>{failedChecks}</div>
               </div>
             </div>
+
+            {/* SSL certificate countdown */}
+            <SSLCard endpoint={endpoint} onChecked={setEndpoint} />
 
             {/* attached alert channels */}
             <div className="card" style={{ marginBottom: "1rem" }}>

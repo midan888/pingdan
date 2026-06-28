@@ -24,6 +24,13 @@ type Endpoint struct {
 	ConsecutiveFailures  int        `json:"consecutiveFailures"`
 	LastCheckedAt        *time.Time `json:"lastCheckedAt"`
 	CreatedAt            time.Time  `json:"createdAt"`
+
+	// SSL/TLS certificate monitoring (populated by the daily ssl checker;
+	// NULL for non-HTTPS endpoints or before the first check).
+	SSLExpiresAt      *time.Time `json:"sslExpiresAt"`
+	SSLLastCheckedAt  *time.Time `json:"sslLastCheckedAt"`
+	SSLLastError      *string    `json:"sslLastError"`
+	SSLAlertedDays    *int       `json:"-"`
 }
 
 type Store struct{ Pool *pgxpool.Pool }
@@ -31,7 +38,8 @@ type Store struct{ Pool *pgxpool.Pool }
 func (s *Store) List(ctx context.Context, userID string) ([]Endpoint, error) {
 	rows, err := s.Pool.Query(ctx, `
 		SELECT id, user_id, group_id, name, url, method, expected_status, interval_sec, timeout_sec,
-		       failure_threshold, enabled, current_state, consecutive_failures, last_checked_at, created_at
+		       failure_threshold, enabled, current_state, consecutive_failures, last_checked_at, created_at,
+		       ssl_expires_at, ssl_last_checked_at, ssl_last_error
 		FROM endpoints WHERE user_id = $1 ORDER BY created_at DESC
 	`, userID)
 	if err != nil {
@@ -43,7 +51,8 @@ func (s *Store) List(ctx context.Context, userID string) ([]Endpoint, error) {
 		var e Endpoint
 		if err := rows.Scan(&e.ID, &e.UserID, &e.GroupID, &e.Name, &e.URL, &e.Method, &e.ExpectedStatus,
 			&e.IntervalSec, &e.TimeoutSec, &e.FailureThreshold, &e.Enabled, &e.CurrentState,
-			&e.ConsecutiveFailures, &e.LastCheckedAt, &e.CreatedAt); err != nil {
+			&e.ConsecutiveFailures, &e.LastCheckedAt, &e.CreatedAt,
+			&e.SSLExpiresAt, &e.SSLLastCheckedAt, &e.SSLLastError); err != nil {
 			return nil, err
 		}
 		out = append(out, e)
@@ -84,7 +93,8 @@ func (s *Store) Delete(ctx context.Context, userID, id string) error {
 func (s *Store) ListEnabledAll(ctx context.Context) ([]Endpoint, error) {
 	rows, err := s.Pool.Query(ctx, `
 		SELECT id, user_id, group_id, name, url, method, expected_status, interval_sec, timeout_sec,
-		       failure_threshold, enabled, current_state, consecutive_failures, last_checked_at, created_at
+		       failure_threshold, enabled, current_state, consecutive_failures, last_checked_at, created_at,
+		       ssl_expires_at, ssl_last_checked_at, ssl_last_error, ssl_alerted_days
 		FROM endpoints WHERE enabled = TRUE
 	`)
 	if err != nil {
@@ -96,7 +106,8 @@ func (s *Store) ListEnabledAll(ctx context.Context) ([]Endpoint, error) {
 		var e Endpoint
 		if err := rows.Scan(&e.ID, &e.UserID, &e.GroupID, &e.Name, &e.URL, &e.Method, &e.ExpectedStatus,
 			&e.IntervalSec, &e.TimeoutSec, &e.FailureThreshold, &e.Enabled, &e.CurrentState,
-			&e.ConsecutiveFailures, &e.LastCheckedAt, &e.CreatedAt); err != nil {
+			&e.ConsecutiveFailures, &e.LastCheckedAt, &e.CreatedAt,
+			&e.SSLExpiresAt, &e.SSLLastCheckedAt, &e.SSLLastError, &e.SSLAlertedDays); err != nil {
 			return nil, err
 		}
 		out = append(out, e)
@@ -108,11 +119,13 @@ func (s *Store) GetByID(ctx context.Context, id string) (*Endpoint, error) {
 	var e Endpoint
 	err := s.Pool.QueryRow(ctx, `
 		SELECT id, user_id, group_id, name, url, method, expected_status, interval_sec, timeout_sec,
-		       failure_threshold, enabled, current_state, consecutive_failures, last_checked_at, created_at
+		       failure_threshold, enabled, current_state, consecutive_failures, last_checked_at, created_at,
+		       ssl_expires_at, ssl_last_checked_at, ssl_last_error, ssl_alerted_days
 		FROM endpoints WHERE id=$1
 	`, id).Scan(&e.ID, &e.UserID, &e.GroupID, &e.Name, &e.URL, &e.Method, &e.ExpectedStatus,
 		&e.IntervalSec, &e.TimeoutSec, &e.FailureThreshold, &e.Enabled, &e.CurrentState,
-		&e.ConsecutiveFailures, &e.LastCheckedAt, &e.CreatedAt)
+		&e.ConsecutiveFailures, &e.LastCheckedAt, &e.CreatedAt,
+		&e.SSLExpiresAt, &e.SSLLastCheckedAt, &e.SSLLastError, &e.SSLAlertedDays)
 	if err == pgx.ErrNoRows {
 		return nil, nil
 	}
@@ -124,5 +137,17 @@ func (s *Store) UpdateState(ctx context.Context, id, state string, consecFails i
 		UPDATE endpoints SET current_state=$1, consecutive_failures=$2, last_checked_at=$3, updated_at=now()
 		WHERE id=$4
 	`, state, consecFails, checkedAt, id)
+	return err
+}
+
+// UpdateSSL records the result of a TLS certificate check. expiresAt is nil
+// when the check failed (errMsg explains why); alertedDays carries the last
+// "days remaining" bucket we warned about, or nil to clear it.
+func (s *Store) UpdateSSL(ctx context.Context, id string, expiresAt *time.Time, errMsg *string, checkedAt time.Time, alertedDays *int) error {
+	_, err := s.Pool.Exec(ctx, `
+		UPDATE endpoints SET ssl_expires_at=$1, ssl_last_error=$2, ssl_last_checked_at=$3,
+		    ssl_alerted_days=$4, updated_at=now()
+		WHERE id=$5
+	`, expiresAt, errMsg, checkedAt, alertedDays, id)
 	return err
 }

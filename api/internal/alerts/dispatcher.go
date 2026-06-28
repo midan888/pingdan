@@ -56,6 +56,49 @@ func (d *Dispatcher) Notify(ctx context.Context, e endpoints.Endpoint, newState 
 	}
 }
 
+// NotifySSL dispatches a TLS-certificate-expiry warning to every alert channel
+// attached to the endpoint. daysLeft is the whole number of days until expiry.
+func (d *Dispatcher) NotifySSL(ctx context.Context, e endpoints.Endpoint, daysLeft int, expiresAt time.Time) {
+	rows, err := d.Pool.Query(ctx, `
+		SELECT ac.kind, ac.config
+		FROM endpoint_alert_channels eac
+		JOIN alert_channels ac ON ac.id = eac.channel_id
+		WHERE eac.endpoint_id = $1
+	`, e.ID)
+	if err != nil {
+		d.Logger.Error("alerts: query channels (ssl)", "err", err)
+		return
+	}
+	defer rows.Close()
+
+	subject, body := renderSSLMessage(e, daysLeft, expiresAt)
+
+	for rows.Next() {
+		var kind string
+		var cfg []byte
+		if err := rows.Scan(&kind, &cfg); err != nil {
+			continue
+		}
+		switch kind {
+		case "email":
+			_ = d.sendEmail(ctx, cfg, subject, body)
+		case "telegram":
+			_ = d.sendTelegram(ctx, cfg, body)
+		}
+	}
+}
+
+func renderSSLMessage(e endpoints.Endpoint, daysLeft int, expiresAt time.Time) (string, string) {
+	dayWord := "days"
+	if daysLeft == 1 {
+		dayWord = "day"
+	}
+	subject := fmt.Sprintf("[pingdan] SSL expires in %d %s — %s", daysLeft, dayWord, e.Name)
+	body := fmt.Sprintf("The SSL certificate for %s is expiring soon.\nEndpoint: %s\nURL: %s\nDays left: %d\nExpires: %s\n\nRenew the certificate to avoid an outage.",
+		e.Name, e.Name, e.URL, daysLeft, expiresAt.Format(time.RFC1123))
+	return subject, body
+}
+
 // SendTest dispatches a test notification to a single channel config and returns
 // an error if delivery fails, so callers can surface the result to the user.
 func (d *Dispatcher) SendTest(ctx context.Context, kind string, cfg []byte) error {

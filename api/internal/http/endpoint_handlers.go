@@ -15,6 +15,7 @@ import (
 	"github.com/pingdan/api/internal/checks"
 	"github.com/pingdan/api/internal/endpoints"
 	"github.com/pingdan/api/internal/pinger"
+	"github.com/pingdan/api/internal/sslcheck"
 )
 
 type EndpointHandlers struct {
@@ -22,6 +23,7 @@ type EndpointHandlers struct {
 	Checks     *checks.Store
 	Assertions *assertions.Store
 	Scheduler  *pinger.Scheduler
+	SSL        *sslcheck.Checker
 	Pool       *pgxpool.Pool
 }
 
@@ -76,6 +78,25 @@ func (h *EndpointHandlers) Routes(r chi.Router) {
 	r.Delete("/endpoints/{id}", h.delete)
 	r.Get("/endpoints/{id}/checks", h.listChecks)
 	r.Get("/endpoints/{id}/stats", h.stats)
+	r.Post("/endpoints/{id}/ssl-check", h.sslCheck)
+}
+
+// sslCheck runs an on-demand TLS certificate check and returns the refreshed
+// endpoint with its updated ssl fields.
+func (h *EndpointHandlers) sslCheck(w http.ResponseWriter, r *http.Request) {
+	e := h.owned(w, r)
+	if e == nil {
+		return
+	}
+	if h.SSL != nil {
+		h.SSL.CheckEndpoint(r.Context(), *e)
+	}
+	updated, err := h.Store.GetByID(r.Context(), e.ID)
+	if err != nil || updated == nil {
+		http.Error(w, "not found", 404)
+		return
+	}
+	WriteJSON(w, 200, updated)
 }
 
 // owned loads an endpoint and verifies it belongs to the requesting user.

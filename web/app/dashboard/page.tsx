@@ -13,6 +13,41 @@ type Row = { endpoint: Endpoint; checks: Check[]; stats: EndpointStats | null };
 const ALL = "__all__";
 const UNGROUPED = "__ungrouped__";
 
+function EndpointCard({ endpoint, checks, stats }: Row) {
+  const last = checks[0];
+  return (
+    <Link href={`/endpoints/${endpoint.id}`} style={{ color: "inherit", textDecoration: "none" }}>
+      <div className="card hoverable">
+        <div className="spread" style={{ marginBottom: "0.75rem" }}>
+          <div className="row">
+            <span className={`dot ${endpoint.currentState}`} />
+            <strong>{endpoint.name}</strong>
+          </div>
+          <span className={`pill ${endpoint.currentState}`}>{endpoint.currentState}</span>
+        </div>
+
+        <div className="mono muted" style={{ fontSize: "0.78rem", marginBottom: "0.75rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {endpoint.url}
+        </div>
+
+        <Sparkline checks={checks} width={400} height={40} />
+        <div style={{ marginTop: "0.5rem" }}>
+          <MiniStatusBar checks={checks} count={30} />
+        </div>
+
+        <div className="spread" style={{ marginTop: "0.85rem", fontSize: "0.82rem" }}>
+          <span className="muted">
+            {stats ? `${stats.uptimePct.toFixed(1)}% uptime` : "—"}
+          </span>
+          <span className="mono muted">
+            {last?.latencyMs != null ? `${last.latencyMs} ms` : "—"}
+          </span>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const [allRows, setAllRows] = useState<Row[]>([]);
@@ -59,6 +94,16 @@ export default function DashboardPage() {
 
   const groupName = (id: string | null) => groups.find((g) => g.id === id)?.name ?? null;
   const hasUngrouped = allRows.some((r) => !r.endpoint.groupId);
+
+  // Bucket the visible rows into sections: one per group (in the group list's
+  // order), then an "Ungrouped" section last. Empty sections are dropped.
+  const sections: { id: string; name: string; rows: Row[] }[] = [];
+  for (const g of groups) {
+    const grouped = rows.filter((r) => r.endpoint.groupId === g.id);
+    if (grouped.length > 0) sections.push({ id: g.id, name: g.name, rows: grouped });
+  }
+  const ungrouped = rows.filter((r) => !r.endpoint.groupId || !groupName(r.endpoint.groupId));
+  if (ungrouped.length > 0) sections.push({ id: UNGROUPED, name: "Ungrouped", rows: ungrouped });
 
   const eps = rows.map((r) => r.endpoint);
   const up = eps.filter((e) => e.currentState === "up").length;
@@ -132,48 +177,25 @@ export default function DashboardPage() {
             <Link href="/endpoints/new"><button className="primary">Create your first endpoint</button></Link>
           </div>
         ) : (
-          <div className="grid grid-auto">
-            {rows.map(({ endpoint, checks, stats }) => {
-              const last = checks[0];
-              return (
-                <Link key={endpoint.id} href={`/endpoints/${endpoint.id}`} style={{ color: "inherit", textDecoration: "none" }}>
-                  <div className="card hoverable">
-                    <div className="spread" style={{ marginBottom: "0.75rem" }}>
-                      <div className="row">
-                        <span className={`dot ${endpoint.currentState}`} />
-                        <strong>{endpoint.name}</strong>
-                      </div>
-                      <span className={`pill ${endpoint.currentState}`}>{endpoint.currentState}</span>
-                    </div>
-
-                    {groupName(endpoint.groupId) && (
-                      <div className="faint" style={{ fontSize: "0.72rem", marginBottom: "0.4rem" }}>
-                        {groupName(endpoint.groupId)}
-                      </div>
-                    )}
-
-                    <div className="mono muted" style={{ fontSize: "0.78rem", marginBottom: "0.75rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      {endpoint.url}
-                    </div>
-
-                    <Sparkline checks={checks} width={400} height={40} />
-                    <div style={{ marginTop: "0.5rem" }}>
-                      <MiniStatusBar checks={checks} count={30} />
-                    </div>
-
-                    <div className="spread" style={{ marginTop: "0.85rem", fontSize: "0.82rem" }}>
-                      <span className="muted">
-                        {stats ? `${stats.uptimePct.toFixed(1)}% uptime` : "—"}
-                      </span>
-                      <span className="mono muted">
-                        {last?.latencyMs != null ? `${last.latencyMs} ms` : "—"}
-                      </span>
-                    </div>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
+          sections.map((section) => {
+            const sUp = section.rows.filter((r) => r.endpoint.currentState === "up").length;
+            const sDown = section.rows.filter((r) => r.endpoint.currentState === "down").length;
+            return (
+              <section key={section.id} className="group-section">
+                <div className="group-header">
+                  <h2>{section.name}</h2>
+                  <span className="group-count">{section.rows.length}</span>
+                  {sDown > 0 && <span className="pill down">{sDown} down</span>}
+                  {sDown === 0 && sUp === section.rows.length && <span className="pill up">all up</span>}
+                </div>
+                <div className="grid grid-auto">
+                  {section.rows.map(({ endpoint, checks, stats }) => (
+                    <EndpointCard key={endpoint.id} endpoint={endpoint} checks={checks} stats={stats} />
+                  ))}
+                </div>
+              </section>
+            );
+          })
         )}
       </div>
     </>

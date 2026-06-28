@@ -124,6 +124,47 @@ label { display: block; font-size: 0.78rem; color: var(--text-dim); margin-botto
 .card.hoverable { transition: border-color 0.12s, transform 0.12s; cursor: pointer; }
 .card.hoverable:hover { border-color: var(--border-strong); transform: translateY(-1px); }
 
+/* Grouped sections (dashboard cards + endpoints table) */
+.group-section { margin-bottom: 2rem; }
+.group-section:last-child { margin-bottom: 0; }
+.group-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.85rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+.group-header h2 { margin: 0; font-size: 1rem; font-weight: 600; }
+.group-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.4rem;
+  height: 1.4rem;
+  padding: 0 0.45rem;
+  border-radius: 999px;
+  background: var(--bg-elev-2);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+/* Section header row inside the endpoints table */
+tr.group-row td {
+  background: var(--bg-elev);
+  border-top: 1px solid var(--border-strong);
+  padding-top: 0.7rem;
+  padding-bottom: 0.7rem;
+}
+tr.group-row .group-row-name {
+  font-weight: 600;
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+  margin-right: 0.6rem;
+}
+tr.group-row td > * { vertical-align: middle; }
+
 .grid { display: grid; gap: 1rem; }
 .grid-2 { grid-template-columns: repeat(2, 1fr); }
 .grid-3 { grid-template-columns: repeat(3, 1fr); }

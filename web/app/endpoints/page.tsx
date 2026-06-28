@@ -41,6 +41,16 @@ export default function EndpointsPage() {
 
   const groupName = (id: string | null) => groups.find((g) => g.id === id)?.name ?? null;
 
+  // Bucket endpoints into sections: one per group (in the group list's order),
+  // then an "Ungrouped" section last. Empty sections are dropped.
+  const sections: { id: string; name: string; items: Endpoint[] }[] = [];
+  for (const g of groups) {
+    const grouped = items.filter((e) => e.groupId === g.id);
+    if (grouped.length > 0) sections.push({ id: g.id, name: g.name, items: grouped });
+  }
+  const ungrouped = items.filter((e) => !e.groupId || !groupName(e.groupId));
+  if (ungrouped.length > 0) sections.push({ id: "__ungrouped__", name: "Ungrouped", items: ungrouped });
+
   useEffect(() => {
     if (!getToken()) {
       router.replace("/login");
@@ -74,7 +84,6 @@ export default function EndpointsPage() {
               <thead>
                 <tr>
                   <th>Name</th>
-                  <th>Group</th>
                   <th>URL</th>
                   <th>State</th>
                   <th>SSL</th>
@@ -82,28 +91,41 @@ export default function EndpointsPage() {
                   <th>Last check</th>
                 </tr>
               </thead>
-              <tbody>
-                {items.map((e) => (
-                  <tr
-                    key={e.id}
-                    style={{ cursor: "pointer" }}
-                    onClick={() => router.push(`/endpoints/${e.id}`)}
-                  >
-                    <td>
-                      <div className="row">
-                        <span className={`dot ${e.currentState}`} />
-                        <strong>{e.name}</strong>
-                      </div>
-                    </td>
-                    <td className="muted">{groupName(e.groupId) ?? <span className="faint">—</span>}</td>
-                    <td className="mono muted">{e.method} {e.url}</td>
-                    <td><span className={`pill ${e.currentState}`}>{e.currentState}</span></td>
-                    <td className="num mono"><SSLCell e={e} /></td>
-                    <td className="num">{intervalLabel(e.intervalSec)}</td>
-                    <td className="mono muted">{e.lastCheckedAt ? new Date(e.lastCheckedAt).toLocaleString() : "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
+              {sections.map((section) => {
+                const down = section.items.filter((e) => e.currentState === "down").length;
+                return (
+                  <tbody key={section.id}>
+                    {sections.length > 1 && (
+                      <tr className="group-row">
+                        <td colSpan={6}>
+                          <span className="group-row-name">{section.name}</span>
+                          <span className="group-count">{section.items.length}</span>
+                          {down > 0 && <span className="pill down">{down} down</span>}
+                        </td>
+                      </tr>
+                    )}
+                    {section.items.map((e) => (
+                      <tr
+                        key={e.id}
+                        style={{ cursor: "pointer" }}
+                        onClick={() => router.push(`/endpoints/${e.id}`)}
+                      >
+                        <td>
+                          <div className="row">
+                            <span className={`dot ${e.currentState}`} />
+                            <strong>{e.name}</strong>
+                          </div>
+                        </td>
+                        <td className="mono muted">{e.method} {e.url}</td>
+                        <td><span className={`pill ${e.currentState}`}>{e.currentState}</span></td>
+                        <td className="num mono"><SSLCell e={e} /></td>
+                        <td className="num">{intervalLabel(e.intervalSec)}</td>
+                        <td className="mono muted">{e.lastCheckedAt ? new Date(e.lastCheckedAt).toLocaleString() : "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                );
+              })}
             </table>
           </div>
         )}

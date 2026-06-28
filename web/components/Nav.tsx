@@ -9,6 +9,7 @@ const links = [
   { href: "/endpoints", label: "Endpoints" },
   { href: "/groups", label: "Groups" },
   { href: "/channels", label: "Alerts" },
+  { href: "/status-pages", label: "Status Pages" },
 ];
 
 export function Nav() {

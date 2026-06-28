@@ -26,6 +26,7 @@ import (
 	httpx "github.com/pingdan/api/internal/http"
 	"github.com/pingdan/api/internal/pinger"
 	"github.com/pingdan/api/internal/sslcheck"
+	"github.com/pingdan/api/internal/statuspages"
 )
 
 func main() {
@@ -64,6 +65,7 @@ func main() {
 	groupStore := &groups.Store{Pool: pool}
 	checkStore := &checks.Store{Pool: pool}
 	assertionStore := &assertions.Store{Pool: pool}
+	statusPageStore := &statuspages.Store{Pool: pool}
 	dispatcher := &alerts.Dispatcher{
 		Pool: pool, Logger: logger,
 		ResendAPIKey:     cfg.ResendAPIKey,
@@ -96,6 +98,10 @@ func main() {
 	authH := &httpx.AuthHandlers{OAuth: oauthSvc, Email: emailSvc, FrontendURL: cfg.FrontendURL}
 	authH.Routes(r)
 
+	// Public, unauthenticated status pages.
+	pubStatusH := &httpx.PublicStatusHandlers{Store: statusPageStore, Endpoints: endpointStore, Checks: checkStore}
+	pubStatusH.Routes(r)
+
 	r.Group(func(r chi.Router) {
 		r.Use(httpx.AuthMiddleware(jwt))
 		r.Get("/me", func(w http.ResponseWriter, r *http.Request) {
@@ -108,6 +114,8 @@ func main() {
 		alH.Routes(r)
 		grH := &httpx.GroupHandlers{Store: groupStore}
 		grH.Routes(r)
+		spH := &httpx.StatusPageHandlers{Store: statusPageStore, Endpoints: endpointStore}
+		spH.Routes(r)
 	})
 
 	srv := &http.Server{Addr: cfg.HTTPAddr, Handler: r, ReadHeaderTimeout: 10 * time.Second}

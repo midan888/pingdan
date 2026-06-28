@@ -35,10 +35,64 @@ export async function api<T = unknown>(path: string, init: RequestInit = {}): Pr
   return res.json() as Promise<T>;
 }
 
+/** Fetch wrapper for public, unauthenticated endpoints (e.g. status pages). */
+export async function publicApi<T = unknown>(path: string): Promise<T> {
+  const res = await fetch(`${API_URL}${path}`);
+  if (res.status === 404) throw new NotFoundError();
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || res.statusText);
+  }
+  return res.json() as Promise<T>;
+}
+
+export class NotFoundError extends Error {
+  constructor() {
+    super("not found");
+    this.name = "NotFoundError";
+  }
+}
+
 export type Group = {
   id: string;
   name: string;
   createdAt: string;
+};
+
+export type StatusPage = {
+  id: string;
+  slug: string;
+  title: string;
+  description: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type StatusPageItem = {
+  endpointId: string;
+  displayName: string | null;
+  position: number;
+};
+
+/** A single public check, reduced to what is safe to expose. */
+export type PublicTick = {
+  ok: boolean;
+  checkedAt: string;
+};
+
+export type PublicStatusItem = {
+  name: string;
+  state: EndpointState;
+  uptimePct: number;
+  history: PublicTick[];
+};
+
+export type PublicStatusPage = {
+  title: string;
+  description: string;
+  overall: "up" | "down" | "degraded" | "unknown";
+  updatedAt: string;
+  items: PublicStatusItem[];
 };
 
 export type EndpointState = "up" | "down" | "unknown";

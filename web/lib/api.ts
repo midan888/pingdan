@@ -35,8 +35,15 @@ export async function api<T = unknown>(path: string, init: RequestInit = {}): Pr
   return res.json() as Promise<T>;
 }
 
+export type Group = {
+  id: string;
+  name: string;
+  createdAt: string;
+};
+
 export type Endpoint = {
   id: string;
+  groupId: string | null;
   name: string;
   url: string;
   method: string;

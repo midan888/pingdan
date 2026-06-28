@@ -4,17 +4,25 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Nav } from "@/components/Nav";
-import { api, getToken, intervalLabel, type Endpoint } from "@/lib/api";
+import { api, getToken, intervalLabel, type Endpoint, type Group } from "@/lib/api";
 
 export default function EndpointsPage() {
   const router = useRouter();
   const [items, setItems] = useState<Endpoint[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
 
   async function refresh() {
-    setItems(await api<Endpoint[]>("/endpoints"));
+    const [eps, grps] = await Promise.all([
+      api<Endpoint[]>("/endpoints"),
+      api<Group[]>("/groups").catch(() => [] as Group[]),
+    ]);
+    setItems(eps);
+    setGroups(grps);
     setLoading(false);
   }
+
+  const groupName = (id: string | null) => groups.find((g) => g.id === id)?.name ?? null;
 
   useEffect(() => {
     if (!getToken()) {
@@ -49,6 +57,7 @@ export default function EndpointsPage() {
               <thead>
                 <tr>
                   <th>Name</th>
+                  <th>Group</th>
                   <th>URL</th>
                   <th>State</th>
                   <th>Interval</th>
@@ -68,6 +77,7 @@ export default function EndpointsPage() {
                         <strong>{e.name}</strong>
                       </div>
                     </td>
+                    <td className="muted">{groupName(e.groupId) ?? <span className="faint">—</span>}</td>
                     <td className="mono muted">{e.method} {e.url}</td>
                     <td><span className={`pill ${e.currentState}`}>{e.currentState}</span></td>
                     <td className="num">{intervalLabel(e.intervalSec)}</td>

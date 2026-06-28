@@ -5,17 +5,27 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Nav } from "@/components/Nav";
 import { Sparkline, MiniStatusBar } from "@/components/Charts";
-import { api, getToken, type Check, type Endpoint, type EndpointStats } from "@/lib/api";
+import { api, getToken, type Check, type Endpoint, type EndpointStats, type Group } from "@/lib/api";
 
 type Row = { endpoint: Endpoint; checks: Check[]; stats: EndpointStats | null };
 
+// Sentinel filter values that aren't real group ids.
+const ALL = "__all__";
+const UNGROUPED = "__ungrouped__";
+
 export default function DashboardPage() {
   const router = useRouter();
-  const [rows, setRows] = useState<Row[]>([]);
+  const [allRows, setAllRows] = useState<Row[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [filter, setFilter] = useState<string>(ALL);
   const [loading, setLoading] = useState(true);
 
   async function load() {
-    const eps = await api<Endpoint[]>("/endpoints");
+    const [eps, grps] = await Promise.all([
+      api<Endpoint[]>("/endpoints"),
+      api<Group[]>("/groups").catch(() => [] as Group[]),
+    ]);
+    setGroups(grps);
     const rows = await Promise.all(
       eps.map(async (endpoint) => {
         const [checks, stats] = await Promise.all([
@@ -25,7 +35,7 @@ export default function DashboardPage() {
         return { endpoint, checks, stats };
       })
     );
-    setRows(rows);
+    setAllRows(rows);
     setLoading(false);
   }
 
@@ -39,6 +49,16 @@ export default function DashboardPage() {
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
+
+  const rows =
+    filter === ALL
+      ? allRows
+      : filter === UNGROUPED
+      ? allRows.filter((r) => !r.endpoint.groupId)
+      : allRows.filter((r) => r.endpoint.groupId === filter);
+
+  const groupName = (id: string | null) => groups.find((g) => g.id === id)?.name ?? null;
+  const hasUngrouped = allRows.some((r) => !r.endpoint.groupId);
 
   const eps = rows.map((r) => r.endpoint);
   const up = eps.filter((e) => e.currentState === "up").length;
@@ -62,7 +82,22 @@ export default function DashboardPage() {
             <h1>Dashboard</h1>
             <div className="subtitle">Live status of all monitored endpoints</div>
           </div>
-          <Link href="/endpoints/new"><button className="primary">+ New endpoint</button></Link>
+          <div className="row" style={{ gap: "0.6rem" }}>
+            {groups.length > 0 && (
+              <select
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                aria-label="Filter by group"
+              >
+                <option value={ALL}>All groups</option>
+                {groups.map((g) => (
+                  <option key={g.id} value={g.id}>{g.name}</option>
+                ))}
+                {hasUngrouped && <option value={UNGROUPED}>Ungrouped</option>}
+              </select>
+            )}
+            <Link href="/endpoints/new"><button className="primary">+ New endpoint</button></Link>
+          </div>
         </div>
 
         {/* summary cards */}
@@ -110,6 +145,12 @@ export default function DashboardPage() {
                       </div>
                       <span className={`pill ${endpoint.currentState}`}>{endpoint.currentState}</span>
                     </div>
+
+                    {groupName(endpoint.groupId) && (
+                      <div className="faint" style={{ fontSize: "0.72rem", marginBottom: "0.4rem" }}>
+                        {groupName(endpoint.groupId)}
+                      </div>
+                    )}
 
                     <div className="mono muted" style={{ fontSize: "0.78rem", marginBottom: "0.75rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       {endpoint.url}

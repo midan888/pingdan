@@ -141,6 +141,7 @@ export default function EndpointDetailPage() {
               intervalSec: endpoint.intervalSec,
               timeoutSec: endpoint.timeoutSec,
               failureThreshold: endpoint.failureThreshold,
+              groupId: endpoint.groupId,
               assertions,
               channelIds,
             }}

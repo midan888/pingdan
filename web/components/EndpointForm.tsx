@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
-import { api, type AlertChannel, type Assertion } from "@/lib/api";
+import { api, type AlertChannel, type Assertion, type Group } from "@/lib/api";
 import { AssertionBuilder } from "./AssertionBuilder";
 
 export type EndpointFormValues = {
@@ -13,6 +13,7 @@ export type EndpointFormValues = {
   intervalSec: number;
   timeoutSec: number;
   failureThreshold: number;
+  groupId: string | null;
   assertions: Assertion[];
   channelIds: string[];
 };
@@ -35,6 +36,7 @@ export function emptyEndpoint(): EndpointFormValues {
     intervalSec: 60,
     timeoutSec: 10,
     failureThreshold: 2,
+    groupId: null,
     assertions: [],
     channelIds: [],
   };
@@ -104,9 +106,11 @@ export function EndpointForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [channels, setChannels] = useState<AlertChannel[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
 
   useEffect(() => {
     api<AlertChannel[]>("/alert-channels").then(setChannels).catch(() => setChannels([]));
+    api<Group[]>("/groups").then(setGroups).catch(() => setGroups([]));
   }, []);
 
   function set<K extends keyof EndpointFormValues>(key: K, val: EndpointFormValues[K]) {
@@ -158,9 +162,27 @@ export function EndpointForm({
           <div className="hint">The HTTP request we&apos;ll send on every check.</div>
         </div>
 
-        <div className="field" style={{ marginBottom: 0 }}>
+        <div className="field">
           <label>Display name</label>
           <input style={{ maxWidth: 360 }} placeholder="Production API" value={v.name} onChange={(e) => set("name", e.target.value)} required />
+        </div>
+
+        <div className="field" style={{ marginBottom: 0 }}>
+          <label>Group <span className="faint">(optional)</span></label>
+          <select
+            style={{ maxWidth: 360 }}
+            value={v.groupId ?? ""}
+            onChange={(e) => set("groupId", e.target.value || null)}
+            aria-label="Group"
+          >
+            <option value="">No group</option>
+            {groups.map((g) => (
+              <option key={g.id} value={g.id}>{g.name}</option>
+            ))}
+          </select>
+          <div className="hint">
+            Organize related endpoints together. <Link href="/groups">Manage groups</Link>.
+          </div>
         </div>
       </Section>
 

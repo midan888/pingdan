@@ -187,6 +187,7 @@ type assertionInput struct {
 }
 
 type endpointInput struct {
+	GroupID          *string          `json:"groupId"`
 	Name             string           `json:"name"`
 	URL              string           `json:"url"`
 	Method           string           `json:"method"`
@@ -236,6 +237,10 @@ func snapInterval(sec int) int {
 }
 
 func (in *endpointInput) normalize() {
+	// Treat an empty/blank group id as ungrouped.
+	if in.GroupID != nil && strings.TrimSpace(*in.GroupID) == "" {
+		in.GroupID = nil
+	}
 	in.Name = strings.TrimSpace(in.Name)
 	in.URL = strings.TrimSpace(in.URL)
 	if in.Method == "" {
@@ -287,7 +292,7 @@ func (h *EndpointHandlers) create(w http.ResponseWriter, r *http.Request) {
 		enabled = *in.Enabled
 	}
 	e := &endpoints.Endpoint{
-		UserID: u.ID, Name: in.Name, URL: in.URL, Method: in.Method,
+		UserID: u.ID, GroupID: in.GroupID, Name: in.Name, URL: in.URL, Method: in.Method,
 		ExpectedStatus: in.ExpectedStatus, IntervalSec: in.IntervalSec, TimeoutSec: in.TimeoutSec,
 		FailureThreshold: in.FailureThreshold, Enabled: enabled,
 	}
@@ -332,7 +337,7 @@ func (h *EndpointHandlers) update(w http.ResponseWriter, r *http.Request) {
 		enabled = *in.Enabled
 	}
 	e := &endpoints.Endpoint{
-		Name: in.Name, URL: in.URL, Method: in.Method,
+		GroupID: in.GroupID, Name: in.Name, URL: in.URL, Method: in.Method,
 		ExpectedStatus: in.ExpectedStatus, IntervalSec: in.IntervalSec, TimeoutSec: in.TimeoutSec,
 		FailureThreshold: in.FailureThreshold, Enabled: enabled,
 	}

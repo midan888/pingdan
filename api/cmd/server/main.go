@@ -22,6 +22,7 @@ import (
 	"github.com/pingdan/api/internal/config"
 	"github.com/pingdan/api/internal/db"
 	"github.com/pingdan/api/internal/endpoints"
+	"github.com/pingdan/api/internal/groups"
 	httpx "github.com/pingdan/api/internal/http"
 	"github.com/pingdan/api/internal/pinger"
 )
@@ -59,6 +60,7 @@ func main() {
 	emailSvc := auth.NewEmail(pool, jwt)
 
 	endpointStore := &endpoints.Store{Pool: pool}
+	groupStore := &groups.Store{Pool: pool}
 	checkStore := &checks.Store{Pool: pool}
 	assertionStore := &assertions.Store{Pool: pool}
 	dispatcher := &alerts.Dispatcher{
@@ -99,6 +101,8 @@ func main() {
 		epH.Routes(r)
 		alH := &httpx.AlertHandlers{Pool: pool, Dispatcher: dispatcher}
 		alH.Routes(r)
+		grH := &httpx.GroupHandlers{Store: groupStore}
+		grH.Routes(r)
 	})
 
 	srv := &http.Server{Addr: cfg.HTTPAddr, Handler: r, ReadHeaderTimeout: 10 * time.Second}

@@ -41,30 +41,18 @@ export type Group = {
   createdAt: string;
 };
 
-/**
- * Distinct accent colors cycled across group sections so adjacent groups are
- * instantly distinguishable. Indexed by the group's position in the list.
- */
-export const GROUP_COLORS = [
-  "#4493f8", // blue
-  "#3fb950", // green
-  "#bc8cff", // purple
-  "#d29922", // amber
-  "#f778ba", // pink
-  "#39c5cf", // cyan
-  "#ff7b72", // coral
-] as const;
+export type EndpointState = "up" | "down" | "unknown";
 
 /**
- * Stable accent color for a group, derived from its id so the color never
- * changes when groups are renamed or reordered. Same id → same color.
+ * Accent color for a group section, driven by the worst state among its
+ * endpoints: red if any is down, green if all are up, neutral otherwise
+ * (pending/unknown, or an empty group). Mirrors the status pill colors so the
+ * group header reads as a status at a glance.
  */
-export function groupColor(id: string): string {
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) {
-    hash = (hash * 31 + id.charCodeAt(i)) | 0;
-  }
-  return GROUP_COLORS[Math.abs(hash) % GROUP_COLORS.length];
+export function groupStatusColor(states: EndpointState[]): string {
+  if (states.some((s) => s === "down")) return "var(--down)";
+  if (states.length > 0 && states.every((s) => s === "up")) return "var(--up)";
+  return "var(--unknown)";
 }
 
 export type Endpoint = {

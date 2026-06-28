@@ -228,6 +228,9 @@ tr.group-row .group-count { margin-right: 0.6rem; }
 .badge-unknown { color: var(--text-dim); }
 
 /* ---------- table ---------- */
+/* lets wide tables scroll horizontally inside their card on narrow screens
+   instead of overflowing the viewport. */
+.table-scroll { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
 th, td { text-align: left; padding: 0.55rem 0.6rem; border-bottom: 1px solid var(--border); }
 th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-faint); font-weight: 600; }
@@ -235,8 +238,13 @@ tbody tr:hover { background: rgba(255,255,255,0.015); }
 td.num { font-variant-numeric: tabular-nums; }
 
 /* ---------- charts ---------- */
-.chart-wrap { width: 100%; }
+/* overflow:hidden clips the bar row to the card width so many narrow bars never
+   push past the container on small screens; max-width caps it to its parent. */
+.chart-wrap { width: 100%; max-width: 100%; overflow: hidden; }
 .chart-bars { display: flex; align-items: flex-end; gap: 2px; height: 120px; }
+/* every direct flex child (bars/segments) may shrink below its content width */
+.chart-bars > *, .chart-strip > * { min-width: 0 !important; }
+.chart-strip { display: flex; gap: 2px; }
 .bar-tip {
   position: fixed;
   pointer-events: none;

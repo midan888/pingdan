@@ -177,10 +177,10 @@ export default function DashboardPage() {
             <Link href="/endpoints/new"><button className="primary">Create your first endpoint</button></Link>
           </div>
         ) : (
-          sections.map((section, i) => {
+          sections.map((section) => {
             const sUp = section.rows.filter((r) => r.endpoint.currentState === "up").length;
             const sDown = section.rows.filter((r) => r.endpoint.currentState === "down").length;
-            const accent = section.id === UNGROUPED ? "var(--unknown)" : groupColor(i);
+            const accent = section.id === UNGROUPED ? "var(--unknown)" : groupColor(section.id);
             return (
               <section key={section.id} className="group-section" style={{ ["--group-accent" as string]: accent }}>
                 <div className="group-header">

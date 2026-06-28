@@ -79,7 +79,7 @@ export default function EndpointsPage() {
             <Link href="/endpoints/new"><button className="primary">Create your first endpoint</button></Link>
           </div>
         ) : (
-          <div className="card" style={{ padding: 0 }}>
+          <div className="card table-scroll" style={{ padding: 0 }}>
             <table>
               <thead>
                 <tr>
@@ -91,9 +91,9 @@ export default function EndpointsPage() {
                   <th>Last check</th>
                 </tr>
               </thead>
-              {sections.map((section, i) => {
+              {sections.map((section) => {
                 const down = section.items.filter((e) => e.currentState === "down").length;
-                const accent = section.id === "__ungrouped__" ? "var(--unknown)" : groupColor(i);
+                const accent = section.id === "__ungrouped__" ? "var(--unknown)" : groupColor(section.id);
                 return (
                   <tbody key={section.id} style={{ ["--group-accent" as string]: accent }}>
                     {sections.length > 1 && (

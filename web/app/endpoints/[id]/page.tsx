@@ -301,6 +301,7 @@ export default function EndpointDetailPage() {
             {/* recent checks table */}
             <div className="card">
               <h3>Recent checks</h3>
+              <div className="table-scroll">
               <table>
                 <thead>
                   <tr>
@@ -334,6 +335,7 @@ export default function EndpointDetailPage() {
                   )}
                 </tbody>
               </table>
+              </div>
             </div>
           </>
         )}

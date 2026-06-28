@@ -55,8 +55,16 @@ export const GROUP_COLORS = [
   "#ff7b72", // coral
 ] as const;
 
-export function groupColor(index: number): string {
-  return GROUP_COLORS[index % GROUP_COLORS.length];
+/**
+ * Stable accent color for a group, derived from its id so the color never
+ * changes when groups are renamed or reordered. Same id → same color.
+ */
+export function groupColor(id: string): string {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = (hash * 31 + id.charCodeAt(i)) | 0;
+  }
+  return GROUP_COLORS[Math.abs(hash) % GROUP_COLORS.length];
 }
 
 export type Endpoint = {

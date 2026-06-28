@@ -26,9 +26,10 @@ function downsample<T>(arr: T[], max: number): T[] {
   return out;
 }
 
-// Upper bound on how many bars/segments we draw; beyond this they'd be
-// sub-pixel and the flex row overflows its container.
-const MAX_BARS = 240;
+// Upper bound on how many bars/segments we draw. The bar row shrinks to fit its
+// container (no per-bar min width), so this only guards against drawing more
+// DOM nodes than there could be visible pixels on a narrow screen.
+const MAX_BARS = 180;
 
 /**
  * ResponseTimeChart renders one bar per check (oldest → newest, left → right).
@@ -56,7 +57,7 @@ export function ResponseTimeChart({ checks, height = 140 }: { checks: Check[]; h
               key={c.id}
               style={{
                 flex: 1,
-                minWidth: 2,
+                minWidth: 0,
                 height: `${Math.max(pct, 3)}%`,
                 background: color,
                 borderRadius: "2px 2px 0 0",
@@ -109,13 +110,13 @@ export function StatusTimeline({ checks }: { checks: Check[] }) {
   }
   return (
     <div className="chart-wrap">
-      <div style={{ display: "flex", gap: 2, height: 28 }}>
+      <div className="chart-strip" style={{ height: 28 }}>
         {data.map((c) => (
           <div
             key={c.id}
             style={{
               flex: 1,
-              minWidth: 2,
+              minWidth: 0,
               borderRadius: 2,
               background: c.ok ? UP : DOWN,
               opacity: 0.85,

@@ -69,7 +69,7 @@ Expected: 200`}</code></pre>
               <h2 id="intervals">Check intervals</h2>
               <p>Intervals are fixed for predictable scheduling. Pick one of:</p>
               <ul>
-                <li><code>1 min</code>, <code>2 min</code>, <code>3 min</code>, <code>5 min</code> or <code>8 min</code></li>
+                <li><code>1 min</code>, <code>2 min</code>, <code>3 min</code>, <code>5 min</code>, <code>8 min</code>, <code>13 min</code>, <code>21 min</code> or <code>34 min</code></li>
               </ul>
               <p>The timeout controls how long we wait for a response before recording a failure.</p>
 

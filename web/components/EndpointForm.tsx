@@ -25,6 +25,9 @@ export const INTERVALS = [
   { sec: 180, label: "3 min" },
   { sec: 300, label: "5 min" },
   { sec: 480, label: "8 min" },
+  { sec: 780, label: "13 min" },
+  { sec: 1260, label: "21 min" },
+  { sec: 2040, label: "34 min" },
 ];
 
 export function emptyEndpoint(): EndpointFormValues {

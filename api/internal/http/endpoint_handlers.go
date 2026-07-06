@@ -240,7 +240,7 @@ func (in *endpointInput) toAssertions() ([]assertions.Assertion, error) {
 }
 
 // allowedIntervals are the fixed check intervals (seconds) the UI offers.
-var allowedIntervals = []int{60, 120, 180, 300, 480}
+var allowedIntervals = []int{60, 120, 180, 300, 480, 780, 1260, 2040}
 
 // snapInterval clamps an arbitrary interval to the nearest allowed value.
 func snapInterval(sec int) int {

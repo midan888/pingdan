@@ -1,13 +1,21 @@
 "use client";
 
+import Link from "next/link";
 import type { Assertion, AssertionComparison, AssertionSource } from "@/lib/api";
 
-const SOURCES: { value: AssertionSource; label: string; needsProp?: boolean; propPlaceholder?: string }[] = [
-  { value: "status_code", label: "Status code" },
-  { value: "response_time", label: "Response time (ms)" },
-  { value: "header", label: "Header", needsProp: true, propPlaceholder: "Content-Type" },
-  { value: "body", label: "Body" },
-  { value: "json_path", label: "JSON path", needsProp: true, propPlaceholder: "data.status" },
+const SOURCES: {
+  value: AssertionSource;
+  label: string;
+  needsProp?: boolean;
+  propPlaceholder?: string;
+  targetPlaceholder: string;
+  numeric?: boolean;
+}[] = [
+  { value: "status_code", label: "Status code", targetPlaceholder: "200", numeric: true },
+  { value: "response_time", label: "Response time (ms)", targetPlaceholder: "500", numeric: true },
+  { value: "header", label: "Header", needsProp: true, propPlaceholder: "Content-Type", targetPlaceholder: "application/json" },
+  { value: "body", label: "Body", targetPlaceholder: "ok" },
+  { value: "json_path", label: "JSON path", needsProp: true, propPlaceholder: "data.status", targetPlaceholder: "ok" },
 ];
 
 // Which comparisons make sense for each source.
@@ -59,13 +67,14 @@ export function AssertionBuilder({
     const next = value.map((a, idx) => {
       if (idx !== i) return a;
       const merged = { ...a, ...patch };
-      // when source changes, reset comparison to a valid one for the new source
+      // when source changes, reset the fields that no longer make sense
       if (patch.source && patch.source !== a.source) {
         const allowed = COMPARISONS[patch.source];
         if (!allowed.some((c) => c.value === merged.comparison)) {
           merged.comparison = allowed[0].value;
         }
-        if (!SOURCES.find((s) => s.value === patch.source)?.needsProp) merged.property = "";
+        merged.property = "";
+        merged.target = "";
       }
       return merged;
     });
@@ -93,40 +102,61 @@ export function AssertionBuilder({
 
       {value.map((a, i) => {
         const src = SOURCES.find((s) => s.value === a.source)!;
+        const isRegex = a.comparison === "matches";
         return (
           <div className="assert-row" key={i}>
-            <select value={a.source} onChange={(e) => update(i, { source: e.target.value as AssertionSource })}>
+            <select
+              className="a-source"
+              value={a.source}
+              onChange={(e) => update(i, { source: e.target.value as AssertionSource })}
+              aria-label="assertion source"
+            >
               {SOURCES.map((s) => (
                 <option key={s.value} value={s.value}>{s.label}</option>
               ))}
             </select>
 
-            {src.needsProp ? (
+            {src.needsProp && (
               <input
+                className="a-prop"
                 placeholder={src.propPlaceholder}
                 value={a.property}
                 onChange={(e) => update(i, { property: e.target.value })}
+                aria-label={a.source === "header" ? "header name" : "JSON path"}
               />
-            ) : (
-              <div className="faint" style={{ fontSize: "0.78rem", alignSelf: "center" }}>—</div>
             )}
 
-            <select value={a.comparison} onChange={(e) => update(i, { comparison: e.target.value as AssertionComparison })}>
+            <select
+              className="a-comparison"
+              value={a.comparison}
+              onChange={(e) => update(i, { comparison: e.target.value as AssertionComparison })}
+              aria-label="comparison"
+            >
               {COMPARISONS[a.source].map((c) => (
                 <option key={c.value} value={c.value}>{c.label}</option>
               ))}
             </select>
 
             <input
-              placeholder="value"
+              className="a-target"
+              placeholder={isRegex ? "^2\\d\\d$" : src.targetPlaceholder}
+              inputMode={src.numeric && !isRegex ? "numeric" : undefined}
               value={a.target}
               onChange={(e) => update(i, { target: e.target.value })}
+              aria-label="expected value"
             />
 
-            <button type="button" className="danger" onClick={() => remove(i)} title="Remove">✕</button>
+            <button type="button" className="danger a-remove" onClick={() => remove(i)} title="Remove assertion" aria-label="remove assertion">✕</button>
           </div>
         );
       })}
+
+      {value.length > 0 && (
+        <div className="hint" style={{ marginTop: 0 }}>
+          {value.length > 1 ? "All assertions must pass for a check to count as up. " : "The assertion must pass for a check to count as up. "}
+          <Link href="/docs#assertions">Assertion docs</Link>.
+        </div>
+      )}
     </div>
   );
 }

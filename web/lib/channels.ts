@@ -144,6 +144,63 @@ export const CHANNEL_KINDS: ChannelKindDefinition[] = [
       },
     ],
   },
+  {
+    value: "pagerduty",
+    label: "PagerDuty",
+    icon: "P",
+    fields: [
+      {
+        key: "routingKey",
+        label: "Routing key",
+        placeholder: "PagerDuty Events API v2 routing key",
+        hint: "Use an Events API v2 integration routing key.",
+        sensitive: true,
+      },
+    ],
+  },
+  {
+    value: "ntfy",
+    label: "ntfy",
+    icon: "N",
+    fields: [
+      {
+        key: "topic",
+        label: "Topic",
+        placeholder: "team-alerts",
+        hint: "Use an existing topic or choose a private, hard-to-guess topic name.",
+      },
+      {
+        key: "server",
+        label: "Server",
+        placeholder: "https://ntfy.sh",
+        hint: "Leave blank to use ntfy.sh.",
+        inputMode: "url",
+        optional: true,
+        validate: (value) => (isHTTPURL(value) ? null : "Enter a valid http or https URL."),
+      },
+      {
+        key: "accessToken",
+        label: "Access token",
+        placeholder: "Optional bearer token",
+        optional: true,
+        sensitive: true,
+      },
+    ],
+  },
+  {
+    value: "pushover",
+    label: "Pushover",
+    icon: "P",
+    fields: [
+      {
+        key: "userKey",
+        label: "User key",
+        placeholder: "Your Pushover user or group key",
+        hint: "Requires PUSHOVER_APP_TOKEN to be configured on this pingdan deployment.",
+        sensitive: true,
+      },
+    ],
+  },
 ];
 
 export function channelKind(kind: AlertChannelKind): ChannelKindDefinition {
@@ -156,11 +213,12 @@ export function channelIcon(kind: AlertChannelKind | string): string {
 
 export function channelTarget(channel: Pick<AlertChannel, "kind" | "config">): string {
   const def = channelKind(channel.kind);
-  return def.fields
+  const target = def.fields
     .filter((field) => !field.sensitive)
     .map((field) => channel.config[field.key])
     .filter((value): value is string => typeof value === "string" && value.length > 0)
     .join(" · ");
+  return target || "Configured";
 }
 
 export function configForKind(kind: AlertChannelKind, values: Record<string, string>): Record<string, string> {

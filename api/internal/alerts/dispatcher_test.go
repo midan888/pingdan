@@ -273,6 +273,230 @@ func TestUserWebhookRejectsRedirectToNonHTTPS(t *testing.T) {
 	}
 }
 
+func TestSendPagerDutyEventMapping(t *testing.T) {
+	type payload struct {
+		Summary  string `json:"summary"`
+		Source   string `json:"source"`
+		Severity string `json:"severity"`
+	}
+	var got []struct {
+		RoutingKey  string  `json:"routing_key"`
+		EventAction string  `json:"event_action"`
+		DedupKey    string  `json:"dedup_key"`
+		Payload     payload `json:"payload"`
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var event struct {
+			RoutingKey  string  `json:"routing_key"`
+			EventAction string  `json:"event_action"`
+			DedupKey    string  `json:"dedup_key"`
+			Payload     payload `json:"payload"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&event); err != nil {
+			t.Errorf("decode payload: %v", err)
+		}
+		got = append(got, event)
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	defer srv.Close()
+
+	d := &Dispatcher{Logger: testLogger(), PagerDutyEventsURL: srv.URL}
+	cfg := []byte(`{"routingKey":"routing-key"}`)
+	endpoint := AlertEndpoint{ID: "ep_123", Name: "API", URL: "https://example.com"}
+	if err := d.send(context.Background(), KindPagerDuty, cfg, Alert{
+		Event:    EventEndpointDown,
+		Endpoint: endpoint,
+		Subject:  "API down",
+	}); err != nil {
+		t.Fatalf("down send() error = %v", err)
+	}
+	if err := d.send(context.Background(), KindPagerDuty, cfg, Alert{
+		Event:    EventEndpointRecovered,
+		Endpoint: endpoint,
+		Subject:  "API recovered",
+	}); err != nil {
+		t.Fatalf("recovered send() error = %v", err)
+	}
+	if err := d.send(context.Background(), KindPagerDuty, cfg, Alert{
+		Event:    EventSSLExpiring,
+		Endpoint: endpoint,
+		Subject:  "SSL expiring",
+	}); err != nil {
+		t.Fatalf("ssl send() error = %v", err)
+	}
+
+	if len(got) != 3 {
+		t.Fatalf("events length = %d, want 3", len(got))
+	}
+	cases := []struct {
+		i        int
+		action   string
+		dedupKey string
+		severity string
+	}{
+		{0, "trigger", "pingdan-endpoint-ep_123", "critical"},
+		{1, "resolve", "pingdan-endpoint-ep_123", "critical"},
+		{2, "trigger", "pingdan-ssl-ep_123", "warning"},
+	}
+	for _, c := range cases {
+		if got[c.i].RoutingKey != "routing-key" {
+			t.Errorf("event %d routing_key = %q, want routing-key", c.i, got[c.i].RoutingKey)
+		}
+		if got[c.i].EventAction != c.action {
+			t.Errorf("event %d action = %q, want %q", c.i, got[c.i].EventAction, c.action)
+		}
+		if got[c.i].DedupKey != c.dedupKey {
+			t.Errorf("event %d dedup_key = %q, want %q", c.i, got[c.i].DedupKey, c.dedupKey)
+		}
+		if got[c.i].Payload.Severity != c.severity {
+			t.Errorf("event %d severity = %q, want %q", c.i, got[c.i].Payload.Severity, c.severity)
+		}
+	}
+}
+
+func TestSendPagerDutyTestTriggersAndResolves(t *testing.T) {
+	var actions []string
+	var dedupKeys []string
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var event struct {
+			EventAction string `json:"event_action"`
+			DedupKey    string `json:"dedup_key"`
+			Payload     struct {
+				Severity string `json:"severity"`
+			} `json:"payload"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&event); err != nil {
+			t.Errorf("decode payload: %v", err)
+		}
+		if event.Payload.Severity != "info" {
+			t.Errorf("severity = %q, want info", event.Payload.Severity)
+		}
+		actions = append(actions, event.EventAction)
+		dedupKeys = append(dedupKeys, event.DedupKey)
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	defer srv.Close()
+
+	d := &Dispatcher{Logger: testLogger(), PagerDutyEventsURL: srv.URL}
+	if err := d.SendTest(context.Background(), KindPagerDuty, []byte(`{"routingKey":"routing-key"}`)); err != nil {
+		t.Fatalf("SendTest() error = %v", err)
+	}
+	if strings.Join(actions, ",") != "trigger,resolve" {
+		t.Errorf("actions = %#v, want trigger then resolve", actions)
+	}
+	if len(dedupKeys) != 2 || dedupKeys[0] != "pingdan-test" || dedupKeys[1] != "pingdan-test" {
+		t.Errorf("dedupKeys = %#v, want two pingdan-test keys", dedupKeys)
+	}
+}
+
+func TestSendNtfyHeadersAndBody(t *testing.T) {
+	var gotPath string
+	var gotTitle string
+	var gotPriority string
+	var gotAuth string
+	var gotBody string
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			t.Errorf("read body: %v", err)
+		}
+		gotPath = r.URL.Path
+		gotTitle = r.Header.Get("Title")
+		gotPriority = r.Header.Get("Priority")
+		gotAuth = r.Header.Get("Authorization")
+		gotBody = string(body)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	d := &Dispatcher{Logger: testLogger()}
+	cfg := []byte(`{"topic":"ops","server":"` + srv.URL + `","accessToken":"ntfy-token"}`)
+	err := d.send(context.Background(), KindNtfy, cfg, Alert{
+		Event:   EventEndpointDown,
+		Subject: "API down",
+		Body:    "Endpoint: API",
+	})
+	if err != nil {
+		t.Fatalf("send() error = %v", err)
+	}
+	if gotPath != "/ops" {
+		t.Errorf("path = %q, want /ops", gotPath)
+	}
+	if gotTitle != "API down" {
+		t.Errorf("Title = %q, want API down", gotTitle)
+	}
+	if gotPriority != "urgent" {
+		t.Errorf("Priority = %q, want urgent", gotPriority)
+	}
+	if gotAuth != "Bearer ntfy-token" {
+		t.Errorf("Authorization = %q, want bearer token", gotAuth)
+	}
+	if gotBody != "Endpoint: API" {
+		t.Errorf("body = %q, want alert body", gotBody)
+	}
+}
+
+func TestSendPushoverFormEncoding(t *testing.T) {
+	var gotPath string
+	var gotContentType string
+	var gotToken string
+	var gotUser string
+	var gotTitle string
+	var gotMessage string
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		gotContentType = r.Header.Get("Content-Type")
+		if err := r.ParseForm(); err != nil {
+			t.Errorf("parse form: %v", err)
+		}
+		gotToken = r.Form.Get("token")
+		gotUser = r.Form.Get("user")
+		gotTitle = r.Form.Get("title")
+		gotMessage = r.Form.Get("message")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	d := &Dispatcher{
+		Logger:           testLogger(),
+		PushoverAppToken: "app-token",
+		PushoverBaseURL:  srv.URL,
+	}
+	if err := d.SendTest(context.Background(), KindPushover, []byte(`{"userKey":"user-key"}`)); err != nil {
+		t.Fatalf("SendTest() error = %v", err)
+	}
+	if gotPath != "/1/messages.json" {
+		t.Errorf("path = %q, want /1/messages.json", gotPath)
+	}
+	if gotContentType != "application/x-www-form-urlencoded" {
+		t.Errorf("content-type = %q, want form encoded", gotContentType)
+	}
+	if gotToken != "app-token" || gotUser != "user-key" {
+		t.Errorf("token/user = %q/%q, want app-token/user-key", gotToken, gotUser)
+	}
+	if gotTitle != "[pingdan] Test alert" {
+		t.Errorf("title = %q, want test subject", gotTitle)
+	}
+	if !strings.Contains(gotMessage, "This is a test alert from pingdan.") {
+		t.Errorf("message = %q, want test body", gotMessage)
+	}
+}
+
+func TestSendPushoverRequiresAppToken(t *testing.T) {
+	d := &Dispatcher{Logger: testLogger()}
+	err := d.SendTest(context.Background(), KindPushover, []byte(`{"userKey":"user-key"}`))
+	if err == nil {
+		t.Fatal("SendTest() error = nil, want app-token error")
+	}
+	if !strings.Contains(err.Error(), "pushover not configured") {
+		t.Errorf("error = %q, want pushover not configured", err.Error())
+	}
+}
+
 func testLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }

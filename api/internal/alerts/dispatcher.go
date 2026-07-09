@@ -21,24 +21,40 @@ import (
 )
 
 const (
-	KindEmail    = "email"
-	KindTelegram = "telegram"
-	KindSlack    = "slack"
-	KindDiscord  = "discord"
-	KindTeams    = "teams"
-	KindWebhook  = "webhook"
+	KindEmail     = "email"
+	KindTelegram  = "telegram"
+	KindSlack     = "slack"
+	KindDiscord   = "discord"
+	KindTeams     = "teams"
+	KindWebhook   = "webhook"
+	KindPagerDuty = "pagerduty"
+	KindNtfy      = "ntfy"
+	KindPushover  = "pushover"
 
 	EventEndpointDown      = "endpoint.down"
 	EventEndpointRecovered = "endpoint.recovered"
 	EventSSLExpiring       = "ssl.expiring"
 	EventTest              = "test"
 
-	defaultResendBaseURL   = "https://api.resend.com"
-	defaultTelegramBaseURL = "https://api.telegram.org"
-	postJSONTimeout        = 10 * time.Second
+	defaultResendBaseURL      = "https://api.resend.com"
+	defaultTelegramBaseURL    = "https://api.telegram.org"
+	defaultPagerDutyEventsURL = "https://events.pagerduty.com/v2/enqueue"
+	defaultPushoverBaseURL    = "https://api.pushover.net"
+	defaultNtfyServer         = "https://ntfy.sh"
+	postJSONTimeout           = 10 * time.Second
 )
 
-var ValidKinds = []string{KindEmail, KindTelegram, KindSlack, KindDiscord, KindTeams, KindWebhook}
+var ValidKinds = []string{
+	KindEmail,
+	KindTelegram,
+	KindSlack,
+	KindDiscord,
+	KindTeams,
+	KindWebhook,
+	KindPagerDuty,
+	KindNtfy,
+	KindPushover,
+}
 
 func IsValidKind(kind string) bool {
 	for _, valid := range ValidKinds {
@@ -61,6 +77,11 @@ type Dispatcher struct {
 
 	TelegramBotToken string
 	TelegramBaseURL  string
+
+	PagerDutyEventsURL string
+
+	PushoverAppToken string
+	PushoverBaseURL  string
 }
 
 type Alert struct {
@@ -108,12 +129,15 @@ func checkAlert(c *checks.Check) *AlertCheck {
 
 func (d *Dispatcher) senders() map[string]alertSender {
 	return map[string]alertSender{
-		KindEmail:    d.sendEmail,
-		KindTelegram: d.sendTelegram,
-		KindSlack:    d.sendSlack,
-		KindDiscord:  d.sendDiscord,
-		KindTeams:    d.sendTeams,
-		KindWebhook:  d.sendWebhook,
+		KindEmail:     d.sendEmail,
+		KindTelegram:  d.sendTelegram,
+		KindSlack:     d.sendSlack,
+		KindDiscord:   d.sendDiscord,
+		KindTeams:     d.sendTeams,
+		KindWebhook:   d.sendWebhook,
+		KindPagerDuty: d.sendPagerDuty,
+		KindNtfy:      d.sendNtfy,
+		KindPushover:  d.sendPushover,
 	}
 }
 
@@ -402,12 +426,172 @@ func hmacSHA256Hex(secret string, body []byte) string {
 	return hex.EncodeToString(mac.Sum(nil))
 }
 
+type pagerDutyConfig struct {
+	RoutingKey string `json:"routingKey"`
+}
+
+type pagerDutyEvent struct {
+	RoutingKey  string             `json:"routing_key"`
+	EventAction string             `json:"event_action"`
+	DedupKey    string             `json:"dedup_key"`
+	Payload     pagerDutyEventBody `json:"payload"`
+}
+
+type pagerDutyEventBody struct {
+	Summary  string `json:"summary"`
+	Source   string `json:"source"`
+	Severity string `json:"severity"`
+}
+
+func (d *Dispatcher) sendPagerDuty(ctx context.Context, cfg []byte, a Alert) error {
+	var pc pagerDutyConfig
+	if err := json.Unmarshal(cfg, &pc); err != nil || pc.RoutingKey == "" {
+		d.logger().Error("alerts: bad pagerduty config")
+		return fmt.Errorf("bad pagerduty config")
+	}
+	events := pagerDutyEvents(pc.RoutingKey, a)
+	for _, event := range events {
+		if err := d.postJSON(ctx, d.pagerDutyEventsURL(), nil, event); err != nil {
+			return fmt.Errorf("pagerduty send: %w", err)
+		}
+	}
+	return nil
+}
+
+func pagerDutyEvents(routingKey string, a Alert) []pagerDutyEvent {
+	event := pagerDutyEvent{
+		RoutingKey: routingKey,
+		DedupKey:   pagerDutyDedupKey(a),
+		Payload: pagerDutyEventBody{
+			Summary:  a.Subject,
+			Source:   pagerDutySource(a),
+			Severity: pagerDutySeverity(a),
+		},
+	}
+	switch a.Event {
+	case EventEndpointRecovered:
+		event.EventAction = "resolve"
+	case EventTest:
+		event.EventAction = "trigger"
+		resolve := event
+		resolve.EventAction = "resolve"
+		return []pagerDutyEvent{event, resolve}
+	default:
+		event.EventAction = "trigger"
+	}
+	return []pagerDutyEvent{event}
+}
+
+func pagerDutyDedupKey(a Alert) string {
+	switch a.Event {
+	case EventSSLExpiring:
+		return "pingdan-ssl-" + a.Endpoint.ID
+	case EventTest:
+		return "pingdan-test"
+	default:
+		return "pingdan-endpoint-" + a.Endpoint.ID
+	}
+}
+
+func pagerDutySeverity(a Alert) string {
+	switch a.Event {
+	case EventEndpointDown:
+		return "critical"
+	case EventSSLExpiring:
+		return "warning"
+	case EventTest:
+		return "info"
+	default:
+		return "critical"
+	}
+}
+
+func pagerDutySource(a Alert) string {
+	if a.Endpoint.URL != "" {
+		return a.Endpoint.URL
+	}
+	if a.Endpoint.Name != "" {
+		return a.Endpoint.Name
+	}
+	return "pingdan"
+}
+
+type ntfyConfig struct {
+	Topic       string `json:"topic"`
+	Server      string `json:"server,omitempty"`
+	AccessToken string `json:"accessToken,omitempty"`
+}
+
+func (d *Dispatcher) sendNtfy(ctx context.Context, cfg []byte, a Alert) error {
+	var nc ntfyConfig
+	if err := json.Unmarshal(cfg, &nc); err != nil || nc.Topic == "" {
+		d.logger().Error("alerts: bad ntfy config")
+		return fmt.Errorf("bad ntfy config")
+	}
+	server := nc.Server
+	if server == "" {
+		server = defaultNtfyServer
+	}
+	if err := validateUserURL(server); err != nil {
+		return err
+	}
+	target, err := url.JoinPath(server, nc.Topic)
+	if err != nil {
+		return fmt.Errorf("bad ntfy URL: %w", err)
+	}
+	headers := map[string]string{
+		"Title":    a.Subject,
+		"Priority": ntfyPriority(a),
+	}
+	if nc.AccessToken != "" {
+		headers["Authorization"] = "Bearer " + nc.AccessToken
+	}
+	return d.postTextUserURL(ctx, target, headers, a.Body)
+}
+
+func ntfyPriority(a Alert) string {
+	if a.Event == EventEndpointDown {
+		return "urgent"
+	}
+	return "default"
+}
+
+type pushoverConfig struct {
+	UserKey string `json:"userKey"`
+}
+
+func (d *Dispatcher) sendPushover(ctx context.Context, cfg []byte, a Alert) error {
+	if d.PushoverAppToken == "" {
+		d.logger().Warn("alerts: pushover app token not configured")
+		return fmt.Errorf("pushover not configured")
+	}
+	var pc pushoverConfig
+	if err := json.Unmarshal(cfg, &pc); err != nil || pc.UserKey == "" {
+		d.logger().Error("alerts: bad pushover config")
+		return fmt.Errorf("bad pushover config")
+	}
+	form := url.Values{}
+	form.Set("token", d.PushoverAppToken)
+	form.Set("user", pc.UserKey)
+	form.Set("title", a.Subject)
+	form.Set("message", a.Body)
+	return d.postForm(ctx, d.pushoverBaseURL()+"/1/messages.json", nil, form)
+}
+
 func (d *Dispatcher) postJSON(ctx context.Context, url string, headers map[string]string, payload any) error {
 	return d.postJSONPayload(ctx, url, headers, payload, false)
 }
 
 func (d *Dispatcher) postJSONUserURL(ctx context.Context, url string, headers map[string]string, payload any) error {
 	return d.postJSONPayload(ctx, url, headers, payload, true)
+}
+
+func (d *Dispatcher) postTextUserURL(ctx context.Context, url string, headers map[string]string, body string) error {
+	return d.postBody(ctx, url, headers, []byte(body), "text/plain; charset=utf-8", true)
+}
+
+func (d *Dispatcher) postForm(ctx context.Context, rawURL string, headers map[string]string, form url.Values) error {
+	return d.postBody(ctx, rawURL, headers, []byte(form.Encode()), "application/x-www-form-urlencoded", false)
 }
 
 func (d *Dispatcher) postJSONPayload(ctx context.Context, url string, headers map[string]string, payload any, userSuppliedURL bool) error {
@@ -420,6 +604,10 @@ func (d *Dispatcher) postJSONPayload(ctx context.Context, url string, headers ma
 }
 
 func (d *Dispatcher) postJSONBody(ctx context.Context, rawURL string, headers map[string]string, body []byte, userSuppliedURL bool) error {
+	return d.postBody(ctx, rawURL, headers, body, "application/json", userSuppliedURL)
+}
+
+func (d *Dispatcher) postBody(ctx context.Context, rawURL string, headers map[string]string, body []byte, contentType string, userSuppliedURL bool) error {
 	if userSuppliedURL {
 		if err := validateUserURL(rawURL); err != nil {
 			return err
@@ -434,7 +622,7 @@ func (d *Dispatcher) postJSONBody(ctx context.Context, rawURL string, headers ma
 		d.logger().Error("alerts: json request", "err", err)
 		return err
 	}
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Content-Type", contentType)
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
@@ -505,6 +693,20 @@ func (d *Dispatcher) telegramBaseURL() string {
 		return defaultTelegramBaseURL
 	}
 	return strings.TrimRight(d.TelegramBaseURL, "/")
+}
+
+func (d *Dispatcher) pagerDutyEventsURL() string {
+	if d.PagerDutyEventsURL == "" {
+		return defaultPagerDutyEventsURL
+	}
+	return strings.TrimRight(d.PagerDutyEventsURL, "/")
+}
+
+func (d *Dispatcher) pushoverBaseURL() string {
+	if d.PushoverBaseURL == "" {
+		return defaultPushoverBaseURL
+	}
+	return strings.TrimRight(d.PushoverBaseURL, "/")
 }
 
 func (d *Dispatcher) logger() *slog.Logger {

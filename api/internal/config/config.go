@@ -7,12 +7,12 @@ import (
 )
 
 type Config struct {
-	HTTPAddr     string
-	DatabaseURL  string
-	JWTSecret    string
-	JWTTTL       time.Duration
-	PublicURL    string
-	FrontendURL  string
+	HTTPAddr    string
+	DatabaseURL string
+	JWTSecret   string
+	JWTTTL      time.Duration
+	PublicURL   string
+	FrontendURL string
 
 	GoogleClientID     string
 	GoogleClientSecret string
@@ -23,6 +23,8 @@ type Config struct {
 	EmailFrom    string
 
 	TelegramBotToken string
+
+	PushoverAppToken string
 }
 
 func Load() (*Config, error) {
@@ -40,6 +42,7 @@ func Load() (*Config, error) {
 		ResendAPIKey:       os.Getenv("RESEND_API_KEY"),
 		EmailFrom:          getenv("EMAIL_FROM", "alerts@pingdan.local"),
 		TelegramBotToken:   os.Getenv("TELEGRAM_BOT_TOKEN"),
+		PushoverAppToken:   os.Getenv("PUSHOVER_APP_TOKEN"),
 	}
 
 	if c.DatabaseURL == "" {

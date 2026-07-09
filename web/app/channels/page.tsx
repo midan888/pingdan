@@ -164,6 +164,7 @@ export default function ChannelsPage() {
                   {field.optional && <span className="faint"> (optional)</span>}
                 </label>
                 <input
+                  type={field.sensitive ? "password" : "text"}
                   placeholder={field.placeholder}
                   value={values[field.key] ?? ""}
                   onChange={(e) => updateValue(field.key, e.target.value)}

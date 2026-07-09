@@ -71,6 +71,7 @@ func main() {
 		ResendAPIKey:     cfg.ResendAPIKey,
 		EmailFrom:        cfg.EmailFrom,
 		TelegramBotToken: cfg.TelegramBotToken,
+		PushoverAppToken: cfg.PushoverAppToken,
 	}
 	scheduler := pinger.NewScheduler(ctx, endpointStore, checkStore, assertionStore, dispatcher, logger)
 	if err := scheduler.Start(ctx); err != nil {

@@ -146,7 +146,16 @@ export function sslSeverity(daysLeft: number): "ok" | "warn" | "critical" | "exp
   return "ok";
 }
 
-export type AlertChannelKind = "email" | "telegram" | "slack" | "discord" | "teams" | "webhook";
+export type AlertChannelKind =
+  | "email"
+  | "telegram"
+  | "slack"
+  | "discord"
+  | "teams"
+  | "webhook"
+  | "pagerduty"
+  | "ntfy"
+  | "pushover";
 
 export type AlertChannel = {
   id: string;

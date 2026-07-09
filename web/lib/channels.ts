@@ -9,6 +9,7 @@ export type ChannelField = {
   hint?: string;
   inputMode?: ChannelInputMode;
   optional?: boolean;
+  sensitive?: boolean;
   validate?: (value: string) => string | null;
 };
 
@@ -18,6 +19,23 @@ export type ChannelKindDefinition = {
   icon: string;
   fields: ChannelField[];
 };
+
+function isHTTPURL(value: string): boolean {
+  try {
+    const u = new URL(value);
+    return u.protocol === "http:" || u.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function isHTTPSURL(value: string): boolean {
+  try {
+    return new URL(value).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
 
 export const CHANNEL_KINDS: ChannelKindDefinition[] = [
   {
@@ -51,6 +69,81 @@ export const CHANNEL_KINDS: ChannelKindDefinition[] = [
       },
     ],
   },
+  {
+    value: "slack",
+    label: "Slack",
+    icon: "#",
+    fields: [
+      {
+        key: "webhookUrl",
+        label: "Slack webhook URL",
+        placeholder: "https://hooks.slack.com/services/...",
+        hint: "Create an incoming webhook in Slack and paste its URL here.",
+        inputMode: "url",
+        validate: (value) =>
+          value.startsWith("https://hooks.slack.com/")
+            ? null
+            : "Slack webhook URLs should start with https://hooks.slack.com/.",
+      },
+    ],
+  },
+  {
+    value: "discord",
+    label: "Discord",
+    icon: "D",
+    fields: [
+      {
+        key: "webhookUrl",
+        label: "Discord webhook URL",
+        placeholder: "https://discord.com/api/webhooks/...",
+        hint: "Create a Discord channel webhook and paste its URL here.",
+        inputMode: "url",
+        validate: (value) =>
+          value.startsWith("https://discord.com/api/webhooks/") ||
+          value.startsWith("https://discordapp.com/api/webhooks/")
+            ? null
+            : "Discord webhook URLs should start with https://discord.com/api/webhooks/.",
+      },
+    ],
+  },
+  {
+    value: "teams",
+    label: "Teams",
+    icon: "T",
+    fields: [
+      {
+        key: "webhookUrl",
+        label: "Power Automate webhook URL",
+        placeholder: "https://...logic.azure.com/...",
+        hint: "Use a Microsoft Teams workflow trigger URL from Power Automate.",
+        inputMode: "url",
+        validate: (value) => (isHTTPSURL(value) ? null : "Teams webhook URLs must use https."),
+      },
+    ],
+  },
+  {
+    value: "webhook",
+    label: "Webhook",
+    icon: "{}",
+    fields: [
+      {
+        key: "url",
+        label: "Webhook URL",
+        placeholder: "https://example.com/pingdan-alerts",
+        hint: "We'll POST the full structured alert payload to this URL.",
+        inputMode: "url",
+        validate: (value) => (isHTTPURL(value) ? null : "Enter a valid http or https URL."),
+      },
+      {
+        key: "secret",
+        label: "Signing secret",
+        placeholder: "Optional shared secret",
+        hint: "When set, requests include an X-Pingdan-Signature HMAC header.",
+        optional: true,
+        sensitive: true,
+      },
+    ],
+  },
 ];
 
 export function channelKind(kind: AlertChannelKind): ChannelKindDefinition {
@@ -64,6 +157,7 @@ export function channelIcon(kind: AlertChannelKind | string): string {
 export function channelTarget(channel: Pick<AlertChannel, "kind" | "config">): string {
   const def = channelKind(channel.kind);
   return def.fields
+    .filter((field) => !field.sensitive)
     .map((field) => channel.config[field.key])
     .filter((value): value is string => typeof value === "string" && value.length > 0)
     .join(" · ");

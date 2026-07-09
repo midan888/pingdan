@@ -85,7 +85,7 @@ export default function ChannelsPage() {
         method: "POST",
         body: JSON.stringify({ kind, config: configForKind(kind, values) }),
       });
-      setFormNote("Test alert sent — check your inbox/chat.");
+      setFormNote("Test alert sent — check the destination.");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to send test alert");
     } finally {
@@ -100,7 +100,7 @@ export default function ChannelsPage() {
         method: "POST",
         body: JSON.stringify({ kind: c.kind, config: c.config }),
       });
-      alert(`Test alert sent to "${c.label}". Check your inbox/chat.`);
+      alert(`Test alert sent to "${c.label}". Check the destination.`);
     } catch (e) {
       alert(`Test failed: ${e instanceof Error ? e.message : "unknown error"}`);
     } finally {

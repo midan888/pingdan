@@ -3,11 +3,15 @@ package alerts
 import (
 	"bytes"
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -19,6 +23,10 @@ import (
 const (
 	KindEmail    = "email"
 	KindTelegram = "telegram"
+	KindSlack    = "slack"
+	KindDiscord  = "discord"
+	KindTeams    = "teams"
+	KindWebhook  = "webhook"
 
 	EventEndpointDown      = "endpoint.down"
 	EventEndpointRecovered = "endpoint.recovered"
@@ -30,7 +38,7 @@ const (
 	postJSONTimeout        = 10 * time.Second
 )
 
-var ValidKinds = []string{KindEmail, KindTelegram}
+var ValidKinds = []string{KindEmail, KindTelegram, KindSlack, KindDiscord, KindTeams, KindWebhook}
 
 func IsValidKind(kind string) bool {
 	for _, valid := range ValidKinds {
@@ -102,6 +110,10 @@ func (d *Dispatcher) senders() map[string]alertSender {
 	return map[string]alertSender{
 		KindEmail:    d.sendEmail,
 		KindTelegram: d.sendTelegram,
+		KindSlack:    d.sendSlack,
+		KindDiscord:  d.sendDiscord,
+		KindTeams:    d.sendTeams,
+		KindWebhook:  d.sendWebhook,
 	}
 }
 
@@ -268,17 +280,156 @@ func (d *Dispatcher) sendTelegram(ctx context.Context, cfg []byte, a Alert) erro
 	return nil
 }
 
+type webhookURLConfig struct {
+	WebhookURL string `json:"webhookUrl"`
+}
+
+func (d *Dispatcher) sendSlack(ctx context.Context, cfg []byte, a Alert) error {
+	var sc webhookURLConfig
+	if err := json.Unmarshal(cfg, &sc); err != nil || sc.WebhookURL == "" {
+		d.logger().Error("alerts: bad slack config")
+		return fmt.Errorf("bad slack config")
+	}
+	return d.postJSONUserURL(ctx, sc.WebhookURL, nil, map[string]string{
+		"text": alertText(a),
+	})
+}
+
+func (d *Dispatcher) sendDiscord(ctx context.Context, cfg []byte, a Alert) error {
+	var dc webhookURLConfig
+	if err := json.Unmarshal(cfg, &dc); err != nil || dc.WebhookURL == "" {
+		d.logger().Error("alerts: bad discord config")
+		return fmt.Errorf("bad discord config")
+	}
+	return d.postJSONUserURL(ctx, dc.WebhookURL, nil, map[string]string{
+		"content": truncateRunes(alertText(a), 2000),
+	})
+}
+
+func (d *Dispatcher) sendTeams(ctx context.Context, cfg []byte, a Alert) error {
+	var tc webhookURLConfig
+	if err := json.Unmarshal(cfg, &tc); err != nil || tc.WebhookURL == "" {
+		d.logger().Error("alerts: bad teams config")
+		return fmt.Errorf("bad teams config")
+	}
+	payload := map[string]any{
+		"type": "message",
+		"attachments": []map[string]any{
+			{
+				"contentType": "application/vnd.microsoft.card.adaptive",
+				"content": map[string]any{
+					"$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+					"type":    "AdaptiveCard",
+					"version": "1.4",
+					"body": []map[string]any{
+						{
+							"type":   "TextBlock",
+							"text":   a.Subject,
+							"weight": "Bolder",
+							"wrap":   true,
+						},
+						{
+							"type":  "FactSet",
+							"facts": teamsFacts(a),
+						},
+					},
+				},
+			},
+		},
+	}
+	return d.postJSONUserURL(ctx, tc.WebhookURL, nil, payload)
+}
+
+type genericWebhookConfig struct {
+	URL    string `json:"url"`
+	Secret string `json:"secret,omitempty"`
+}
+
+func (d *Dispatcher) sendWebhook(ctx context.Context, cfg []byte, a Alert) error {
+	var wc genericWebhookConfig
+	if err := json.Unmarshal(cfg, &wc); err != nil || wc.URL == "" {
+		d.logger().Error("alerts: bad webhook config")
+		return fmt.Errorf("bad webhook config")
+	}
+	body, err := json.Marshal(a)
+	if err != nil {
+		return err
+	}
+	headers := map[string]string{}
+	if wc.Secret != "" {
+		headers["X-Pingdan-Signature"] = "sha256=" + hmacSHA256Hex(wc.Secret, body)
+	}
+	return d.postJSONBody(ctx, wc.URL, headers, body, true)
+}
+
+func alertText(a Alert) string {
+	return a.Subject + "\n" + a.Body
+}
+
+func truncateRunes(s string, limit int) string {
+	r := []rune(s)
+	if len(r) <= limit {
+		return s
+	}
+	return string(r[:limit])
+}
+
+func teamsFacts(a Alert) []map[string]string {
+	var facts []map[string]string
+	for _, line := range strings.Split(a.Body, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		title, value, ok := strings.Cut(line, ":")
+		if !ok {
+			title, value = "Message", line
+		}
+		facts = append(facts, map[string]string{
+			"title": strings.TrimSpace(title) + ":",
+			"value": strings.TrimSpace(value),
+		})
+	}
+	if len(facts) == 0 {
+		facts = append(facts, map[string]string{"title": "Message:", "value": a.Subject})
+	}
+	return facts
+}
+
+func hmacSHA256Hex(secret string, body []byte) string {
+	mac := hmac.New(sha256.New, []byte(secret))
+	_, _ = mac.Write(body)
+	return hex.EncodeToString(mac.Sum(nil))
+}
+
 func (d *Dispatcher) postJSON(ctx context.Context, url string, headers map[string]string, payload any) error {
+	return d.postJSONPayload(ctx, url, headers, payload, false)
+}
+
+func (d *Dispatcher) postJSONUserURL(ctx context.Context, url string, headers map[string]string, payload any) error {
+	return d.postJSONPayload(ctx, url, headers, payload, true)
+}
+
+func (d *Dispatcher) postJSONPayload(ctx context.Context, url string, headers map[string]string, payload any, userSuppliedURL bool) error {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		d.logger().Error("alerts: marshal json payload", "err", err)
 		return err
 	}
+	return d.postJSONBody(ctx, url, headers, body, userSuppliedURL)
+}
+
+func (d *Dispatcher) postJSONBody(ctx context.Context, rawURL string, headers map[string]string, body []byte, userSuppliedURL bool) error {
+	if userSuppliedURL {
+		if err := validateUserURL(rawURL); err != nil {
+			return err
+		}
+	}
 
 	ctx, cancel := context.WithTimeout(ctx, postJSONTimeout)
 	defer cancel()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, rawURL, bytes.NewReader(body))
 	if err != nil {
 		d.logger().Error("alerts: json request", "err", err)
 		return err
@@ -288,7 +439,7 @@ func (d *Dispatcher) postJSON(ctx context.Context, url string, headers map[strin
 		req.Header.Set(k, v)
 	}
 
-	resp, err := d.httpClient().Do(req)
+	resp, err := d.httpClientForRequest(userSuppliedURL).Do(req)
 	if err != nil {
 		d.logger().Error("alerts: post json", "err", err)
 		return err
@@ -302,11 +453,44 @@ func (d *Dispatcher) postJSON(ctx context.Context, url string, headers map[strin
 	return nil
 }
 
+func validateUserURL(raw string) error {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return fmt.Errorf("invalid webhook url: %w", err)
+	}
+	scheme := strings.ToLower(u.Scheme)
+	if scheme != "http" && scheme != "https" {
+		return fmt.Errorf("webhook url must use http or https")
+	}
+	if u.Host == "" {
+		return fmt.Errorf("webhook url must include a host")
+	}
+	return nil
+}
+
 func (d *Dispatcher) httpClient() *http.Client {
 	if d.HTTPClient != nil {
 		return d.HTTPClient
 	}
 	return http.DefaultClient
+}
+
+func (d *Dispatcher) httpClientForRequest(userSuppliedURL bool) *http.Client {
+	client := d.httpClient()
+	if !userSuppliedURL {
+		return client
+	}
+	c := *client
+	c.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+		if len(via) >= 10 {
+			return fmt.Errorf("stopped after 10 redirects")
+		}
+		if req.URL.Scheme != "https" {
+			return fmt.Errorf("redirect to non-https URL blocked")
+		}
+		return nil
+	}
+	return &c
 }
 
 func (d *Dispatcher) resendBaseURL() string {

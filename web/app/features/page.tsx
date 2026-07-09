@@ -37,7 +37,7 @@ const groups = [
     eyebrow: "Operations",
     title: "Alerting that respects your attention",
     items: [
-      { h: "Fixed intervals", p: "Choose 1, 2, 3, 5 or 8-minute checks — predictable scheduling, no surprises." },
+      { h: "Custom intervals", p: "Check every minute, every 6 hours, or once a day — any interval from 1 minute to 7 days." },
       { h: "Failure thresholds", p: "Only go down after N consecutive failures to filter out transient blips." },
       { h: "Email & Telegram", p: "Route alerts to the channels your team already watches, per endpoint." },
       { h: "Recovery notices", p: "Get told when things come back up, not just when they break." },

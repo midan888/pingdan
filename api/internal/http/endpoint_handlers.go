@@ -239,22 +239,22 @@ func (in *endpointInput) toAssertions() ([]assertions.Assertion, error) {
 	return out, nil
 }
 
-// allowedIntervals are the fixed check intervals (seconds) the UI offers.
-var allowedIntervals = []int{60, 120, 180, 300, 480, 780, 1260, 2040}
+// Supported check interval bounds (seconds).
+const (
+	minIntervalSec = 60            // 1 minute
+	maxIntervalSec = 7 * 24 * 3600 // 7 days
+)
 
-// snapInterval clamps an arbitrary interval to the nearest allowed value.
-func snapInterval(sec int) int {
-	best, bestDiff := allowedIntervals[0], 1<<62
-	for _, a := range allowedIntervals {
-		d := sec - a
-		if d < 0 {
-			d = -d
-		}
-		if d < bestDiff {
-			best, bestDiff = a, d
-		}
+// clampInterval bounds an arbitrary interval to the supported range,
+// rounding down to a whole minute.
+func clampInterval(sec int) int {
+	if sec < minIntervalSec {
+		return minIntervalSec
 	}
-	return best
+	if sec > maxIntervalSec {
+		return maxIntervalSec
+	}
+	return sec - sec%60
 }
 
 func (in *endpointInput) normalize() {
@@ -271,7 +271,7 @@ func (in *endpointInput) normalize() {
 	if in.ExpectedStatus == 0 {
 		in.ExpectedStatus = 200
 	}
-	in.IntervalSec = snapInterval(in.IntervalSec)
+	in.IntervalSec = clampInterval(in.IntervalSec)
 	if in.TimeoutSec <= 0 {
 		in.TimeoutSec = 10
 	}

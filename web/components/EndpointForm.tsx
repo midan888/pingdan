@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
-import { api, type AlertChannel, type Assertion, type Group } from "@/lib/api";
+import { api, intervalLabel, type AlertChannel, type Assertion, type Group } from "@/lib/api";
 import { AssertionBuilder } from "./AssertionBuilder";
 
 export type EndpointFormValues = {
@@ -18,17 +18,33 @@ export type EndpointFormValues = {
   channelIds: string[];
 };
 
-// Fixed monitoring intervals (in seconds).
-export const INTERVALS = [
+// Quick-pick monitoring intervals (in seconds).
+export const INTERVAL_PRESETS = [
   { sec: 60, label: "1 min" },
-  { sec: 120, label: "2 min" },
-  { sec: 180, label: "3 min" },
   { sec: 300, label: "5 min" },
-  { sec: 480, label: "8 min" },
-  { sec: 780, label: "13 min" },
-  { sec: 1260, label: "21 min" },
-  { sec: 2040, label: "34 min" },
+  { sec: 900, label: "15 min" },
+  { sec: 1800, label: "30 min" },
+  { sec: 3600, label: "1 hr" },
+  { sec: 21600, label: "6 hr" },
+  { sec: 43200, label: "12 hr" },
+  { sec: 86400, label: "1 day" },
 ];
+
+// Units for the custom interval picker. `max` keeps the total within 7 days.
+const INTERVAL_UNITS = [
+  { key: "minute", label: "minutes", sec: 60, max: 10080 },
+  { key: "hour", label: "hours", sec: 3600, max: 168 },
+  { key: "day", label: "days", sec: 86400, max: 7 },
+] as const;
+
+type IntervalUnit = (typeof INTERVAL_UNITS)[number]["key"];
+
+// Split seconds into the largest unit that divides it evenly.
+function intervalParts(sec: number): { count: number; unit: IntervalUnit } {
+  if (sec % 86400 === 0) return { count: sec / 86400, unit: "day" };
+  if (sec % 3600 === 0) return { count: sec / 3600, unit: "hour" };
+  return { count: Math.max(1, Math.round(sec / 60)), unit: "minute" };
+}
 
 export function emptyEndpoint(): EndpointFormValues {
   return {
@@ -142,7 +158,14 @@ export function EndpointForm({
     }
   }
 
-  const intervalLabel = INTERVALS.find((i) => i.sec === v.intervalSec)?.label ?? `${v.intervalSec}s`;
+  const { count: intervalCount, unit: intervalUnit } = intervalParts(v.intervalSec);
+  const activeUnit = INTERVAL_UNITS.find((u) => u.key === intervalUnit)!;
+
+  function updateInterval(count: number, unit: IntervalUnit) {
+    const u = INTERVAL_UNITS.find((x) => x.key === unit)!;
+    const n = Math.max(1, Math.min(u.max, Math.round(count) || 1));
+    set("intervalSec", n * u.sec);
+  }
 
   return (
     <form onSubmit={submit}>
@@ -190,11 +213,32 @@ export function EndpointForm({
       </Section>
 
       {/* 2 — Schedule */}
-      <Section num={2} title="Schedule" desc={`Every ${intervalLabel}`}>
+      <Section num={2} title="Schedule" desc={`Every ${intervalLabel(v.intervalSec)}`}>
         <div className="field">
           <label>Check interval</label>
-          <div className="chips">
-            {INTERVALS.map((i) => (
+          <div className="row wrap" style={{ alignItems: "center", gap: "0.5rem" }}>
+            <span className="faint">Every</span>
+            <input
+              type="number"
+              style={{ width: 90 }}
+              min={1}
+              max={activeUnit.max}
+              value={intervalCount}
+              onChange={(e) => updateInterval(Number(e.target.value), intervalUnit)}
+              aria-label="interval amount"
+            />
+            <select
+              value={intervalUnit}
+              onChange={(e) => updateInterval(intervalCount, e.target.value as IntervalUnit)}
+              aria-label="interval unit"
+            >
+              {INTERVAL_UNITS.map((u) => (
+                <option key={u.key} value={u.key}>{u.label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="chips" style={{ marginTop: "0.5rem" }}>
+            {INTERVAL_PRESETS.map((i) => (
               <button
                 type="button"
                 key={i.sec}
@@ -205,6 +249,7 @@ export function EndpointForm({
               </button>
             ))}
           </div>
+          <div className="hint">From 1 minute up to 7 days.</div>
         </div>
 
         <div className="row wrap" style={{ gap: "2rem", marginBottom: 0 }}>

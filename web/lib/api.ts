@@ -155,6 +155,11 @@ export type AlertChannel = {
 
 /** Human-friendly label for a check interval in seconds. */
 export function intervalLabel(sec: number): string {
+  if (sec % 86400 === 0) {
+    const d = sec / 86400;
+    return `${d} day${d === 1 ? "" : "s"}`;
+  }
+  if (sec % 3600 === 0) return `${sec / 3600} hr`;
   if (sec % 60 === 0) return `${sec / 60} min`;
   return `${sec}s`;
 }

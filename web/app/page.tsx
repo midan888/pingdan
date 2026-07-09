@@ -17,7 +17,7 @@ export const metadata: Metadata = {
 const features = [
   { icon: "✓", title: "Deep assertions", desc: "Go beyond status codes. Validate headers, response body, JSON paths and response time on every check." },
   { icon: "⌁", title: "Response-time charts", desc: "Per-endpoint bar charts, p50/p95 latency, and uptime history so you spot regressions early." },
-  { icon: "◷", title: "1-minute checks", desc: "Fixed, predictable intervals from 1 to 8 minutes. Know about incidents fast." },
+  { icon: "◷", title: "1-minute checks", desc: "Custom intervals from 1 minute to 7 days. Know about incidents fast." },
   { icon: "✉", title: "Instant alerts", desc: "Email and Telegram notifications the moment an endpoint goes down — and again when it recovers." },
   { icon: "⛒", title: "Failure thresholds", desc: "Avoid noise. Only alert after N consecutive failures, with full per-check failure detail." },
   { icon: "⚡", title: "Set up in a minute", desc: "Paste a URL, pick what makes a check pass, and you're monitoring. No agents, no config files." },

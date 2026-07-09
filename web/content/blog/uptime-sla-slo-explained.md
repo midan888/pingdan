@@ -75,7 +75,7 @@ To actually run SLOs instead of just talking about them, you need four things:
 1. **A clear SLI definition** — what counts as a good request, including content and latency, not just status code.
 2. **An external probe** at a sensible interval. Check too rarely and a short outage hides between samples; the right [monitoring frequency](/blog/how-often-should-you-monitor) depends on the tightness of your SLO.
 3. **Uptime history** to compute availability over rolling 30-day windows and see whether you're on track.
-4. **Alerts** — email and Telegram — that fire on budget burn, not just hard-down, so you catch slow degradations before they eat the month.
+4. **Alerts** — email, chat, paging, webhooks or SMS — that fire on budget burn, not just hard-down, so you catch slow degradations before they eat the month.
 
 Response-time charts and uptime history turn all of this from a quarterly spreadsheet exercise into something you glance at any day.
 

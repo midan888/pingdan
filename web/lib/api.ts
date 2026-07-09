@@ -166,6 +166,10 @@ export type AlertChannel = {
   config: Record<string, unknown>;
 };
 
+export type Capabilities = {
+  alertChannelKinds: Partial<Record<AlertChannelKind, boolean>>;
+};
+
 /** Human-friendly label for a check interval in seconds. */
 export function intervalLabel(sec: number): string {
   if (sec % 86400 === 0) {

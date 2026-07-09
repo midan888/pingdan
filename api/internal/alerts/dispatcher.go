@@ -73,6 +73,18 @@ func IsValidKind(kind string) bool {
 	return false
 }
 
+func (d *Dispatcher) KindCapabilities() map[string]bool {
+	out := map[string]bool{}
+	for _, kind := range ValidKinds {
+		out[kind] = true
+	}
+	out[KindEmail] = d.ResendAPIKey != ""
+	out[KindTelegram] = d.TelegramBotToken != ""
+	out[KindPushover] = d.PushoverAppToken != ""
+	out[KindTwilioSMS] = d.TwilioAccountSID != "" && d.TwilioAuthToken != "" && d.TwilioFrom != ""
+	return out
+}
+
 type Dispatcher struct {
 	Pool   *pgxpool.Pool
 	Logger *slog.Logger

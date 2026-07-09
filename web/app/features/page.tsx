@@ -7,7 +7,7 @@ import { Breadcrumbs } from "@/components/JsonLd";
 export const metadata: Metadata = {
   title: "Features — pingdan uptime & API monitoring",
   description:
-    "Deep assertions on status, headers, body and JSON path. Response-time charts, uptime history, failure thresholds, and email + Telegram alerts.",
+    "Deep assertions on status, headers, body and JSON path. Response-time charts, uptime history, failure thresholds, and alert integrations for email, chat, webhooks, paging, mobile push, SMS and incident tools.",
   alternates: { canonical: "/features" },
 };
 
@@ -39,7 +39,7 @@ const groups = [
     items: [
       { h: "Custom intervals", p: "Check every minute, every 6 hours, or once a day — any interval from 1 minute to 7 days." },
       { h: "Failure thresholds", p: "Only go down after N consecutive failures to filter out transient blips." },
-      { h: "Email & Telegram", p: "Route alerts to the channels your team already watches, per endpoint." },
+      { h: "11 alert channels", p: "Route alerts to email, Telegram, Slack, Discord, Teams, webhooks, PagerDuty, ntfy, Pushover, Twilio SMS or Opsgenie, per endpoint." },
       { h: "Recovery notices", p: "Get told when things come back up, not just when they break." },
     ],
   },

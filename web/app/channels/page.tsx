@@ -1,9 +1,9 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Nav } from "@/components/Nav";
-import { api, getToken, type AlertChannel, type AlertChannelKind } from "@/lib/api";
+import { api, getToken, type AlertChannel, type AlertChannelKind, type Capabilities } from "@/lib/api";
 import {
   CHANNEL_KINDS,
   channelKind,
@@ -15,6 +15,7 @@ import {
 export default function ChannelsPage() {
   const router = useRouter();
   const [items, setItems] = useState<AlertChannel[]>([]);
+  const [capabilities, setCapabilities] = useState<Capabilities | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [kind, setKind] = useState<AlertChannelKind>("email");
@@ -27,6 +28,10 @@ export default function ChannelsPage() {
   const [testingId, setTestingId] = useState<string | null>(null);
 
   const active = channelKind(kind);
+  const visibleKinds = useMemo(
+    () => CHANNEL_KINDS.filter((k) => capabilities?.alertChannelKinds[k.value] ?? true),
+    [capabilities],
+  );
 
   function updateValue(key: string, value: string) {
     setValues((prev) => ({ ...prev, [key]: value }));
@@ -45,7 +50,16 @@ export default function ChannelsPage() {
       return;
     }
     refresh().catch(() => setLoading(false));
+    api<Capabilities>("/capabilities").then(setCapabilities).catch(() => setCapabilities(null));
   }, [router]);
+
+  useEffect(() => {
+    if (capabilities && visibleKinds.length > 0 && !visibleKinds.some((k) => k.value === kind)) {
+      setKind(visibleKinds[0].value);
+      setError(null);
+      setFormNote(null);
+    }
+  }, [capabilities, kind, visibleKinds]);
 
   async function add(ev: FormEvent) {
     ev.preventDefault();
@@ -133,7 +147,7 @@ export default function ChannelsPage() {
             <div className="field">
               <label>Type</label>
               <div className="chips">
-                {CHANNEL_KINDS.map((k) => (
+                {visibleKinds.map((k) => (
                   <button
                     type="button"
                     key={k.value}

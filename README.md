@@ -51,12 +51,14 @@ When configuring your OAuth apps, set the callback URLs to:
 | GET    | `/auth/{provider}/start`                        | —    | Begins OAuth (`google` or `github`)  |
 | GET    | `/auth/{provider}/callback`                     | —    | Issues JWT, redirects to frontend    |
 | GET    | `/me`                                           | JWT  | Current user                         |
+| GET    | `/capabilities`                                 | JWT  | Enabled env-backed alert channel kinds |
 | GET    | `/endpoints`                                    | JWT  | List your endpoints                  |
 | POST   | `/endpoints`                                    | JWT  | Create                               |
 | PUT    | `/endpoints/{id}`                               | JWT  | Update                               |
 | DELETE | `/endpoints/{id}`                               | JWT  | Delete                               |
 | GET    | `/alert-channels`                               | JWT  | List channels                        |
-| POST   | `/alert-channels`                               | JWT  | Create (kind: `email` or `telegram`) |
+| POST   | `/alert-channels`                               | JWT  | Create an alert channel              |
+| POST   | `/alert-channels/test`                          | JWT  | Send a test alert to a channel config |
 | DELETE | `/alert-channels/{id}`                          | JWT  | Delete                               |
 | POST   | `/endpoints/{id}/channels/{channelId}`          | JWT  | Attach channel                       |
 | DELETE | `/endpoints/{id}/channels/{channelId}`          | JWT  | Detach channel                       |
@@ -70,10 +72,46 @@ When configuring your OAuth apps, set the callback URLs to:
 
 ## Alert channels
 
-- **Email** — requires `SMTP_*` env vars in the API. Channel config: `{ "to": "you@example.com" }`.
-- **Telegram** — requires `TELEGRAM_BOT_TOKEN`. Channel config: `{ "chatId": "123456789" }`. Get your chat ID by messaging the bot, then `https://api.telegram.org/bot<TOKEN>/getUpdates`.
+Supported `kind` values and channel config:
 
-Adding new channel types later means: a new `kind` value, a dispatcher branch in `internal/alerts/dispatcher.go`, and a UI option in `web/app/channels/page.tsx`.
+| Kind | Config | Deployment env |
+|------|--------|----------------|
+| `email` | `{ "to": "you@example.com" }` | `RESEND_API_KEY`, `EMAIL_FROM` |
+| `telegram` | `{ "chatId": "123456789" }` | `TELEGRAM_BOT_TOKEN` |
+| `slack` | `{ "webhookUrl": "https://hooks.slack.com/services/..." }` | — |
+| `discord` | `{ "webhookUrl": "https://discord.com/api/webhooks/..." }` | — |
+| `teams` | `{ "webhookUrl": "https://...logic.azure.com/..." }` | — |
+| `webhook` | `{ "url": "https://example.com/alerts", "secret": "optional" }` | — |
+| `pagerduty` | `{ "routingKey": "..." }` | — |
+| `ntfy` | `{ "topic": "ops", "server": "https://ntfy.sh", "accessToken": "optional" }` | — |
+| `pushover` | `{ "userKey": "..." }` | `PUSHOVER_APP_TOKEN` |
+| `twilio_sms` | `{ "to": "+15551234567" }` | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM` |
+| `opsgenie` | `{ "apiKey": "...", "region": "us" }` | — |
+
+Notes:
+
+- Email is sent through Resend; set `EMAIL_FROM` to a sender on a verified domain.
+- Telegram chat IDs can be found by messaging your bot and opening `https://api.telegram.org/bot<TOKEN>/getUpdates`.
+- Teams targets Power Automate workflow webhooks.
+- Generic webhooks receive the structured alert JSON. If `secret` is set, requests include `X-Pingdan-Signature: sha256=<hmac-sha256-hex>`.
+- Opsgenie `region` is `us` or `eu`.
+- Env-backed channels are hidden from the create form until their deployment env vars are configured.
+
+Adding new channel types later means: a new sender in `internal/alerts/dispatcher.go`, a `ValidKinds` entry, and a UI option in `web/lib/channels.ts`.
+
+## Optional alert env vars
+
+These are only required when using their matching channel:
+
+```sh
+RESEND_API_KEY=
+EMAIL_FROM=alerts@example.com
+TELEGRAM_BOT_TOKEN=
+PUSHOVER_APP_TOKEN=
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+TWILIO_FROM=
+```
 
 ## Production deploy (Caddy + Compose)
 

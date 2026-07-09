@@ -40,7 +40,7 @@ Email is the default for a reason: everyone has it, it's reliable, and it leaves
 
 Telegram solves the immediacy gap. Alerts arrive as instant push notifications on your phone and desktop, it's free, and you can route alerts into a shared group so your whole on-call team sees the same message at the same time. No per-seat pricing, no extra inbox to babysit.
 
-In practice, most teams want both: Telegram for the "wake me up now" push, email for the durable record. pingdan supports email and Telegram alerts out of the box, so you don't have to choose.
+In practice, many teams want both: Telegram for the "wake me up now" push, email for the durable record. pingdan also supports Slack, Discord, Teams, webhooks, paging tools, mobile push, SMS, and incident platforms when your routing gets more sophisticated.
 
 ## Comparing notification channels
 

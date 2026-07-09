@@ -104,7 +104,7 @@ export default function ArticlePage({ params }: Params) {
             <h3>Monitor it before it breaks</h3>
             <p className="muted">
               pingdan checks your endpoints around the clock with deep assertions and
-              sends instant email &amp; Telegram alerts. Free to start.
+              sends instant alerts through the channels your team watches. Free to start.
             </p>
             <Link href="/register">
               <button className="primary btn-lg">Start monitoring free</button>

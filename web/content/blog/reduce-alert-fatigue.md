@@ -94,6 +94,6 @@ Alerting is never "done." Make it a habit:
 
 The goal is a system where a page means *something is actually wrong and I need to act now* — every single time. That trust is what protects your uptime and your team. If you're rethinking your strategy from the ground up, start with [what uptime monitoring](/blog/what-is-uptime-monitoring) is meant to deliver.
 
-Pingdan is built around this philosophy: deep assertions on real responses, consecutive-failure thresholds, severity-aware email and Telegram alerts, and automatic recovery notifications — so you're paged for outages, not for noise.
+Pingdan is built around this philosophy: deep assertions on real responses, consecutive-failure thresholds, severity-aware alert channels, and automatic recovery notifications — so you're paged for outages, not for noise.
 
 [**Start monitoring free →**](/register)

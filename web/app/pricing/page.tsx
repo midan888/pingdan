@@ -26,7 +26,7 @@ const plans = [
     desc: "Everything pingdan offers, free for everyone.",
     cta: "Get started free",
     featured: true,
-    features: ["Unlimited monitors", "1-minute intervals", "All assertion types", "Email + Telegram alerts", "Full history", "Latency percentiles"],
+    features: ["Unlimited monitors", "1-minute intervals", "All assertion types", "All alert integrations", "Full history", "Latency percentiles"],
   },
 ];
 
@@ -34,7 +34,7 @@ const faqs = [
   { q: "Is pingdan really free?", a: "Yes. Every feature is free for everyone — unlimited monitors, 1-minute intervals, all alert channels, and full history. No credit card required." },
   { q: "Are any features locked behind a paid plan?", a: "No. There are no paid plans. You get the full product with no limits or upsells." },
   { q: "What counts as a monitor?", a: "One HTTP endpoint you watch on a schedule. Each monitor can carry as many assertions as you like." },
-  { q: "How do alerts work?", a: "When an endpoint fails its assertions for your configured threshold, we notify the channels attached to it — email and/or Telegram." },
+  { q: "How do alerts work?", a: "When an endpoint fails its assertions for your configured threshold, we notify the channels attached to it — email, chat apps, webhooks, paging tools, mobile push, SMS or incident platforms." },
 ];
 
 const faqJsonLd = {

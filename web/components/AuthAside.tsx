@@ -4,7 +4,7 @@ const points = [
   "Monitor HTTP endpoints from 1-minute intervals",
   "Assert on status, headers, body & JSON path",
   "Response-time charts and uptime history",
-  "Instant alerts via email & Telegram",
+  "Alerts via email, chat, webhooks, paging & SMS",
 ];
 
 export function AuthAside() {

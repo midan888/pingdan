@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: "pingdan — Uptime & API monitoring",
     short_name: "pingdan",
     description:
-      "Monitor HTTP endpoints with deep assertions, response-time charts, and instant email & Telegram alerts.",
+      "Monitor HTTP endpoints with deep assertions, response-time charts, and instant multi-channel alerts.",
     start_url: "/",
     display: "standalone",
     background_color: "#0b1120",

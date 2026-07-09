@@ -12,7 +12,7 @@ export const metadata: Metadata = {
     template: "%s | pingdan",
   },
   description:
-    "Monitor HTTP endpoints with deep assertions on status, headers, body and JSON path. Response-time charts, uptime history, and instant email & Telegram alerts.",
+    "Monitor HTTP endpoints with deep assertions on status, headers, body and JSON path. Response-time charts, uptime history, and instant alerts across email, chat, webhooks, paging and SMS.",
   keywords: [
     "uptime monitoring",
     "API monitoring",

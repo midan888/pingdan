@@ -9,6 +9,6 @@ export default function OpengraphImage() {
   return renderOgImage({
     eyebrow: "Docs",
     title: "How pingdan works.",
-    sub: "Set up monitors, write assertions, choose check intervals, and configure email & Telegram alerts.",
+    sub: "Set up monitors, write assertions, choose check intervals, and configure multi-channel alerts.",
   });
 }

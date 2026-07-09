@@ -17,6 +17,7 @@ type AlertHandlers struct {
 }
 
 func (h *AlertHandlers) Routes(r chi.Router) {
+	r.Get("/capabilities", h.capabilities)
 	r.Get("/alert-channels", h.list)
 	r.Post("/alert-channels", h.create)
 	r.Post("/alert-channels/test", h.test)
@@ -30,6 +31,12 @@ type alertChannel struct {
 	Kind   string          `json:"kind"`
 	Label  string          `json:"label"`
 	Config json.RawMessage `json:"config"`
+}
+
+func (h *AlertHandlers) capabilities(w http.ResponseWriter, r *http.Request) {
+	WriteJSON(w, 200, map[string]any{
+		"alertChannelKinds": h.Dispatcher.KindCapabilities(),
+	})
 }
 
 func (h *AlertHandlers) list(w http.ResponseWriter, r *http.Request) {

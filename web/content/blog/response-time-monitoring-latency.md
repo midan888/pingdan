@@ -95,6 +95,6 @@ When the trend line points the wrong way, the usual suspects are:
 
 > Up is not the same as fast. A service that responds slowly enough is already failing its users — your monitoring should treat it that way.
 
-Pingdan tracks response time on every check, breaks it down by phase, charts it over your full uptime history, and fires email and Telegram alerts the moment latency degrades — long before a timeout would.
+Pingdan tracks response time on every check, breaks it down by phase, charts it over your full uptime history, and fires alerts through the channels your team watches the moment latency degrades — long before a timeout would.
 
 [**Start monitoring free →**](/register)

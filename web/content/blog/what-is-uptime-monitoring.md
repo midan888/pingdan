@@ -69,7 +69,7 @@ You don't need a complicated setup to begin:
 1. Add your most important URL as a monitor.
 2. Assert on status **and** a piece of body content you know should be there.
 3. Pick a 1-minute interval.
-4. Connect an alert channel — email and Telegram are enough to start.
+4. Connect an alert channel — email, chat, webhook, paging or SMS.
 
 That's it. You now know about problems before your users tweet about them.
 

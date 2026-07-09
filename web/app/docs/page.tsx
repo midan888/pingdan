@@ -7,14 +7,28 @@ import { Breadcrumbs } from "@/components/JsonLd";
 export const metadata: Metadata = {
   title: "Docs — How pingdan works",
   description:
-    "Learn how to set up monitors, write assertions on status, headers, body and JSON path, choose check intervals, and configure email & Telegram alerts.",
+    "Learn how to set up monitors, write assertions, choose check intervals, and configure alert integrations across email, chat, webhooks, paging, mobile push, SMS and incident tools.",
   alternates: { canonical: "/docs" },
 };
 
 const toc = [
   { group: "Getting started", items: [["quickstart", "Quickstart"], ["monitors", "Creating a monitor"], ["intervals", "Check intervals"]] },
   { group: "Validation", items: [["assertions", "Assertions"], ["json-path", "JSON path"]] },
-  { group: "Alerting", items: [["thresholds", "Failure thresholds"], ["channels", "Alert channels"]] },
+  { group: "Alerting", items: [["thresholds", "Failure thresholds"], ["channels", "Alert channels"], ["webhooks", "Webhook payload"], ["recipes", "Webhook recipes"]] },
+];
+
+const channels = [
+  ["Email", "Add an address. The deployment must have RESEND_API_KEY set, and EMAIL_FROM should be a verified sender."],
+  ["Telegram", "Paste a chat ID. The deployment must have TELEGRAM_BOT_TOKEN set; use getUpdates after messaging the bot to find your chat ID."],
+  ["Slack", "Create an incoming webhook and paste the hooks.slack.com URL."],
+  ["Discord", "Create a channel webhook and paste the discord.com/api/webhooks URL."],
+  ["Microsoft Teams", "Create a Power Automate workflow with a Teams webhook trigger and paste the HTTPS workflow URL."],
+  ["Generic webhook", "Paste an HTTP(S) URL. Optionally add a signing secret for HMAC verification."],
+  ["PagerDuty", "Create an Events API v2 integration and paste its routing key."],
+  ["ntfy", "Enter a topic, optionally a custom server URL and bearer token. The default server is https://ntfy.sh."],
+  ["Pushover", "Paste a user or group key. The deployment must have PUSHOVER_APP_TOKEN set."],
+  ["Twilio SMS", "Paste an E.164 phone number such as +15551234567. The deployment must have TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN and TWILIO_FROM set."],
+  ["Opsgenie", "Paste an API integration key and choose the US or EU region."],
 ];
 
 export default function DocsPage() {
@@ -109,13 +123,78 @@ Expected: 200`}</code></pre>
               <h2 id="channels">Alert channels</h2>
               <p>
                 Attach one or more channels to a monitor. When it goes down — and again when it recovers —
-                we notify each channel:
+                pingdan notifies each attached channel. SSL-expiry warnings use the same channel set.
               </p>
               <ul>
-                <li><strong>Email</strong> — a message to any address you configure.</li>
-                <li><strong>Telegram</strong> — a message to a chat via your bot.</li>
+                {channels.map(([name, desc]) => (
+                  <li key={name}><strong>{name}</strong> — {desc}</li>
+                ))}
               </ul>
-              <p>Manage channels from the <Link href="/channels">Alerts</Link> page.</p>
+              <p>
+                Manage channels from the <Link href="/channels">Alerts</Link> page. Use <em>Send test</em>{" "}
+                after adding credentials so delivery errors surface before an incident.{" "}
+                Channels that need deployment credentials only appear in the create form after those
+                environment variables are configured.
+              </p>
+
+              <h2 id="webhooks">Webhook payload</h2>
+              <p>
+                Generic webhooks receive the full structured alert as JSON. A typical endpoint-down
+                payload looks like this:
+              </p>
+              <pre><code>{`{
+  "event": "endpoint.down",
+  "endpoint": {
+    "id": "9d4b2d3c-...",
+    "name": "Production API",
+    "url": "https://api.example.com/healthz"
+  },
+  "check": {
+    "statusCode": 503,
+    "checkedAt": "2026-07-10T08:30:00Z"
+  },
+  "subject": "[pingdan] Production API — DOWN",
+  "body": "Endpoint: Production API\\nURL: https://api.example.com/healthz\\nState: DOWN\\nStatus: 503\\nAt: 2026-07-10T08:30:00Z"
+}`}</code></pre>
+              <p>
+                SSL alerts use <code>event: "ssl.expiring"</code> and include an <code>ssl</code> object
+                with <code>daysLeft</code> and <code>expiresAt</code>. Recovery alerts use{" "}
+                <code>event: "endpoint.recovered"</code>.
+              </p>
+              <p>
+                If you set a webhook secret, pingdan signs the exact request body with HMAC-SHA256 and
+                sends <code>X-Pingdan-Signature: sha256=&lt;hex&gt;</code>. In Node.js, verification is:
+              </p>
+              <pre><code>{`import crypto from "node:crypto";
+
+const expected = "sha256=" + crypto
+  .createHmac("sha256", process.env.PINGDAN_WEBHOOK_SECRET)
+  .update(rawRequestBody)
+  .digest("hex");
+
+const received = Buffer.from(signature ?? "");
+const trusted = Buffer.from(expected);
+if (received.length !== trusted.length || !crypto.timingSafeEqual(received, trusted)) {
+  throw new Error("bad signature");
+}`}</code></pre>
+
+              <h2 id="recipes">Webhook recipes</h2>
+              <p>
+                Tools with flexible webhook ingestion can use the generic webhook channel directly:
+              </p>
+              <ul>
+                <li>
+                  <strong>Better Stack</strong> — create an incoming webhook integration in Better Stack,
+                  copy its ingest URL, add a pingdan Generic webhook channel, and attach it to monitors.
+                  Use the payload&apos;s <code>event</code> and <code>endpoint.id</code> fields for routing
+                  or deduplication rules.
+                </li>
+                <li>
+                  <strong>Grafana OnCall</strong> — create an HTTP webhook integration, paste the generated
+                  URL into a pingdan Generic webhook channel, and map <code>endpoint.down</code> to firing
+                  and <code>endpoint.recovered</code> to resolved in the integration template.
+                </li>
+              </ul>
             </article>
           </div>
         </div>

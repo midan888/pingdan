@@ -9,6 +9,6 @@ export default function OpengraphImage() {
   return renderOgImage({
     eyebrow: "Features",
     title: "Assert on everything that matters.",
-    sub: "Status, headers, body & JSON path. Response-time charts, uptime history, failure thresholds, and email + Telegram alerts.",
+    sub: "Status, headers, body & JSON path. Response-time charts, uptime history, failure thresholds, and multi-channel alerts.",
   });
 }

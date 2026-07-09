@@ -146,9 +146,11 @@ export function sslSeverity(daysLeft: number): "ok" | "warn" | "critical" | "exp
   return "ok";
 }
 
+export type AlertChannelKind = "email" | "telegram";
+
 export type AlertChannel = {
   id: string;
-  kind: "email" | "telegram";
+  kind: AlertChannelKind;
   label: string;
   config: Record<string, unknown>;
 };

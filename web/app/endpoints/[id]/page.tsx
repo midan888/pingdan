@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Nav } from "@/components/Nav";
 import { ResponseTimeChart, StatusTimeline } from "@/components/Charts";
 import { EndpointForm, EndpointFormValues } from "@/components/EndpointForm";
+import { channelIcon } from "@/lib/channels";
 import {
   api,
   getToken,
@@ -272,7 +273,7 @@ export default function EndpointDetailPage() {
                     const c = channels.find((x) => x.id === cid);
                     return (
                       <span className="chip selected" key={cid} style={{ cursor: "default" }}>
-                        <span aria-hidden>{c?.kind === "telegram" ? "✈" : "✉"}</span>
+                        <span aria-hidden>{c ? channelIcon(c.kind) : "•"}</span>
                         {c ? c.label : "Unknown channel"}
                       </span>
                     );

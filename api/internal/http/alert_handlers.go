@@ -3,6 +3,7 @@ package httpx
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -58,8 +59,8 @@ func (h *AlertHandlers) create(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad json", 400)
 		return
 	}
-	if in.Kind != "email" && in.Kind != "telegram" {
-		http.Error(w, "kind must be email|telegram", 400)
+	if !alerts.IsValidKind(in.Kind) {
+		http.Error(w, "kind must be "+strings.Join(alerts.ValidKinds, "|"), 400)
 		return
 	}
 	if in.Label == "" || len(in.Config) == 0 {
@@ -84,8 +85,8 @@ func (h *AlertHandlers) test(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad json", 400)
 		return
 	}
-	if in.Kind != "email" && in.Kind != "telegram" {
-		http.Error(w, "kind must be email|telegram", 400)
+	if !alerts.IsValidKind(in.Kind) {
+		http.Error(w, "kind must be "+strings.Join(alerts.ValidKinds, "|"), 400)
 		return
 	}
 	if len(in.Config) == 0 {

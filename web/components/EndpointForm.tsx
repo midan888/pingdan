@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { api, intervalLabel, type AlertChannel, type Assertion, type Group } from "@/lib/api";
+import { channelIcon, channelTarget } from "@/lib/channels";
 import { AssertionBuilder } from "./AssertionBuilder";
 
 export type EndpointFormValues = {
@@ -315,7 +316,7 @@ export function EndpointForm({
               <div className="chips">
                 {channels.map((c) => {
                   const selected = v.channelIds.includes(c.id);
-                  const target = c.kind === "email" ? (c.config.to as string) : (c.config.chatId as string);
+                  const target = channelTarget(c);
                   return (
                     <button
                       type="button"
@@ -324,7 +325,7 @@ export function EndpointForm({
                       onClick={() => toggleChannel(c.id)}
                       title={target}
                     >
-                      <span aria-hidden>{c.kind === "email" ? "✉" : "✈"}</span>
+                      <span aria-hidden>{channelIcon(c.kind)}</span>
                       {c.label}
                       {selected && <span aria-hidden>✓</span>}
                     </button>

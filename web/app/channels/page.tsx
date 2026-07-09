@@ -3,53 +3,35 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Nav } from "@/components/Nav";
-import { api, getToken, type AlertChannel } from "@/lib/api";
-
-type Kind = "email" | "telegram";
-
-const KINDS: { value: Kind; label: string; icon: string; hint: string; placeholder: string }[] = [
-  {
-    value: "email",
-    label: "Email",
-    icon: "✉",
-    hint: "We'll send alerts to this address when an endpoint goes down or recovers.",
-    placeholder: "oncall@company.com",
-  },
-  {
-    value: "telegram",
-    label: "Telegram",
-    icon: "✈",
-    hint: "Message @userinfobot on Telegram to get your chat ID, then add our bot to that chat.",
-    placeholder: "123456789",
-  },
-];
-
-function validate(kind: Kind, value: string): string | null {
-  const v = value.trim();
-  if (!v) return "This field is required.";
-  if (kind === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) return "Enter a valid email address.";
-  if (kind === "telegram" && !/^-?\d+$/.test(v)) return "Chat ID should be a number (e.g. 123456789).";
-  return null;
-}
+import { api, getToken, type AlertChannel, type AlertChannelKind } from "@/lib/api";
+import {
+  CHANNEL_KINDS,
+  channelKind,
+  channelTarget,
+  configForKind,
+  validateChannelConfig,
+} from "@/lib/channels";
 
 export default function ChannelsPage() {
   const router = useRouter();
   const [items, setItems] = useState<AlertChannel[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const [kind, setKind] = useState<Kind>("email");
+  const [kind, setKind] = useState<AlertChannelKind>("email");
   const [label, setLabel] = useState("");
-  const [value, setValue] = useState("");
+  const [values, setValues] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [formNote, setFormNote] = useState<string | null>(null);
   const [testingId, setTestingId] = useState<string | null>(null);
 
-  const active = KINDS.find((k) => k.value === kind)!;
+  const active = channelKind(kind);
 
-  function configFor(k: Kind, v: string) {
-    return k === "email" ? { to: v.trim() } : { chatId: v.trim() };
+  function updateValue(key: string, value: string) {
+    setValues((prev) => ({ ...prev, [key]: value }));
+    if (error) setError(null);
+    if (formNote) setFormNote(null);
   }
 
   async function refresh() {
@@ -67,7 +49,7 @@ export default function ChannelsPage() {
 
   async function add(ev: FormEvent) {
     ev.preventDefault();
-    const err = validate(kind, value);
+    const err = validateChannelConfig(kind, values);
     if (err) {
       setError(err);
       return;
@@ -77,10 +59,10 @@ export default function ChannelsPage() {
     try {
       await api("/alert-channels", {
         method: "POST",
-        body: JSON.stringify({ kind, label: label.trim(), config: configFor(kind, value) }),
+        body: JSON.stringify({ kind, label: label.trim(), config: configForKind(kind, values) }),
       });
       setLabel("");
-      setValue("");
+      setValues({});
       await refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to add channel");
@@ -90,7 +72,7 @@ export default function ChannelsPage() {
   }
 
   async function sendTestForm() {
-    const err = validate(kind, value);
+    const err = validateChannelConfig(kind, values);
     if (err) {
       setError(err);
       return;
@@ -101,7 +83,7 @@ export default function ChannelsPage() {
     try {
       await api("/alert-channels/test", {
         method: "POST",
-        body: JSON.stringify({ kind, config: configFor(kind, value) }),
+        body: JSON.stringify({ kind, config: configForKind(kind, values) }),
       });
       setFormNote("Test alert sent — check your inbox/chat.");
     } catch (e) {
@@ -151,7 +133,7 @@ export default function ChannelsPage() {
             <div className="field">
               <label>Type</label>
               <div className="chips">
-                {KINDS.map((k) => (
+                {CHANNEL_KINDS.map((k) => (
                   <button
                     type="button"
                     key={k.value}
@@ -175,17 +157,22 @@ export default function ChannelsPage() {
               <div className="hint">A name to recognise this channel by.</div>
             </div>
 
-            <div className="field">
-              <label>{kind === "email" ? "Email address" : "Telegram chat ID"}</label>
-              <input
-                placeholder={active.placeholder}
-                value={value}
-                onChange={(e) => { setValue(e.target.value); if (error) setError(null); if (formNote) setFormNote(null); }}
-                inputMode={kind === "telegram" ? "numeric" : "email"}
-                required
-              />
-              <div className="hint">{active.hint}</div>
-            </div>
+            {active.fields.map((field) => (
+              <div className="field" key={field.key}>
+                <label>
+                  {field.label}
+                  {field.optional && <span className="faint"> (optional)</span>}
+                </label>
+                <input
+                  placeholder={field.placeholder}
+                  value={values[field.key] ?? ""}
+                  onChange={(e) => updateValue(field.key, e.target.value)}
+                  inputMode={field.inputMode}
+                  required={!field.optional}
+                />
+                {field.hint && <div className="hint">{field.hint}</div>}
+              </div>
+            ))}
 
             {error && <p className="error-text">{error}</p>}
             {formNote && <p className="hint" style={{ color: "var(--ok, #16a34a)" }}>{formNote}</p>}
@@ -217,8 +204,8 @@ export default function ChannelsPage() {
             ) : (
               <div className="stack" style={{ gap: "0.6rem" }}>
                 {items.map((c) => {
-                  const meta = KINDS.find((k) => k.value === c.kind);
-                  const target = c.kind === "email" ? (c.config.to as string) : (c.config.chatId as string);
+                  const meta = channelKind(c.kind);
+                  const target = channelTarget(c);
                   return (
                     <div className="card" key={c.id} style={{ padding: "0.9rem 1.1rem" }}>
                       <div className="spread">

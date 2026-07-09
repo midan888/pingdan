@@ -142,8 +142,8 @@ Updating to a new release: bump the `API_IMAGE` / `WEB_IMAGE` tag in `.env` and 
 
 Two workflows:
 
-- [.github/workflows/ci.yml](.github/workflows/ci.yml) — runs on PRs against `main`. Builds the Go API and the Next.js app to verify nothing's broken.
-- [.github/workflows/deploy.yml](.github/workflows/deploy.yml) — runs on push to `main`. Builds + pushes images to GHCR, then SSHes into the VPS, updates `.env`, and runs `docker compose pull && up -d`.
+- [.github/workflows/ci.yml](.github/workflows/ci.yml) — runs on PRs against `main`. Runs Go tests with coverage output, frontend unit tests, `next build`, and `tsc`.
+- [.github/workflows/deploy.yml](.github/workflows/deploy.yml) — runs on push to `main`. Gates deploy behind the same API/web checks, then builds + pushes images to GHCR, SSHes into the VPS, updates `.env`, and runs `docker compose pull && up -d`.
 
 ### One-time setup
 

@@ -316,6 +316,17 @@ td.num { font-variant-numeric: tabular-nums; }
 .stepper .val { min-width: 3.2rem; text-align: center; font-variant-numeric: tabular-nums; font-weight: 600; padding: 0 0.4rem; }
 .stepper .val small { font-weight: 400; color: var(--text-dim); margin-left: 0.15rem; }
 
+/* compact number + unit picker (check interval) */
+.interval-picker { display: inline-flex; align-items: stretch; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); overflow: hidden; transition: border-color 0.12s, box-shadow 0.12s; }
+.interval-picker:focus-within { border-color: var(--accent-dim); box-shadow: 0 0 0 3px rgba(68,147,248,0.15); }
+.interval-picker .prefix { display: flex; align-items: center; padding: 0.45rem 0.65rem; background: var(--bg-elev-2); color: var(--text-dim); font-size: 0.82rem; border-right: 1px solid var(--border-strong); }
+.interval-picker input { width: 3.6rem; border: none; border-radius: 0; text-align: center; font-weight: 600; font-variant-numeric: tabular-nums; }
+.interval-picker input:focus { box-shadow: none; }
+.interval-picker input::-webkit-outer-spin-button, .interval-picker input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.interval-picker input[type="number"] { -moz-appearance: textfield; appearance: textfield; }
+.interval-picker select { width: auto; border: none; border-left: 1px solid var(--border-strong); border-radius: 0; background: var(--bg-elev-2); font-weight: 500; padding-right: 1.6rem; }
+.interval-picker select:focus { box-shadow: none; }
+
 .hint { font-size: 0.78rem; color: var(--text-faint); margin-top: 0.35rem; }
 
 /* sticky action bar at the bottom of the form */

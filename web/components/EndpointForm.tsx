@@ -216,11 +216,10 @@ export function EndpointForm({
       <Section num={2} title="Schedule" desc={`Every ${intervalLabel(v.intervalSec)}`}>
         <div className="field">
           <label>Check interval</label>
-          <div className="row wrap" style={{ alignItems: "center", gap: "0.5rem" }}>
-            <span className="faint">Every</span>
+          <div className="interval-picker">
+            <span className="prefix">Every</span>
             <input
               type="number"
-              style={{ width: 90 }}
               min={1}
               max={activeUnit.max}
               value={intervalCount}
@@ -233,11 +232,11 @@ export function EndpointForm({
               aria-label="interval unit"
             >
               {INTERVAL_UNITS.map((u) => (
-                <option key={u.key} value={u.key}>{u.label}</option>
+                <option key={u.key} value={u.key}>{intervalCount === 1 ? u.key : u.label}</option>
               ))}
             </select>
           </div>
-          <div className="chips" style={{ marginTop: "0.5rem" }}>
+          <div className="chips" style={{ marginTop: "0.6rem" }}>
             {INTERVAL_PRESETS.map((i) => (
               <button
                 type="button"
@@ -249,7 +248,7 @@ export function EndpointForm({
               </button>
             ))}
           </div>
-          <div className="hint">From 1 minute up to 7 days.</div>
+          <div className="hint">Anything from 1 minute up to 7 days.</div>
         </div>
 
         <div className="row wrap" style={{ gap: "2rem", marginBottom: 0 }}>

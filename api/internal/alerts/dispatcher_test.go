@@ -497,6 +497,213 @@ func TestSendPushoverRequiresAppToken(t *testing.T) {
 	}
 }
 
+func TestSendTwilioSMSFormEncoding(t *testing.T) {
+	var gotPath string
+	var gotUser string
+	var gotPass string
+	var gotFrom string
+	var gotTo string
+	var gotBody string
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		var ok bool
+		gotUser, gotPass, ok = r.BasicAuth()
+		if !ok {
+			t.Errorf("missing basic auth")
+		}
+		if err := r.ParseForm(); err != nil {
+			t.Errorf("parse form: %v", err)
+		}
+		gotFrom = r.Form.Get("From")
+		gotTo = r.Form.Get("To")
+		gotBody = r.Form.Get("Body")
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer srv.Close()
+
+	d := &Dispatcher{
+		Logger:           testLogger(),
+		TwilioAccountSID: "AC123",
+		TwilioAuthToken:  "auth-token",
+		TwilioFrom:       "+15550000000",
+		TwilioBaseURL:    srv.URL,
+	}
+	if err := d.SendTest(context.Background(), KindTwilioSMS, []byte(`{"to":"+15551112222"}`)); err != nil {
+		t.Fatalf("SendTest() error = %v", err)
+	}
+	if gotPath != "/2010-04-01/Accounts/AC123/Messages.json" {
+		t.Errorf("path = %q, want Twilio Messages path", gotPath)
+	}
+	if gotUser != "AC123" || gotPass != "auth-token" {
+		t.Errorf("basic auth = %q/%q, want account SID/auth token", gotUser, gotPass)
+	}
+	if gotFrom != "+15550000000" || gotTo != "+15551112222" {
+		t.Errorf("from/to = %q/%q, want configured numbers", gotFrom, gotTo)
+	}
+	if gotBody != "pingdan: test alert" {
+		t.Errorf("body = %q, want terse test body", gotBody)
+	}
+}
+
+func TestSendTwilioSMSDownAndRecoveredBodies(t *testing.T) {
+	var bodies []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			t.Errorf("parse form: %v", err)
+		}
+		bodies = append(bodies, r.Form.Get("Body"))
+		w.WriteHeader(http.StatusCreated)
+	}))
+	defer srv.Close()
+
+	d := &Dispatcher{
+		Logger:           testLogger(),
+		TwilioAccountSID: "AC123",
+		TwilioAuthToken:  "auth-token",
+		TwilioFrom:       "+15550000000",
+		TwilioBaseURL:    srv.URL,
+	}
+	cfg := []byte(`{"to":"+15551112222"}`)
+	endpoint := AlertEndpoint{ID: "ep_123", Name: "API", URL: "https://example.com"}
+	if err := d.send(context.Background(), KindTwilioSMS, cfg, Alert{Event: EventEndpointDown, Endpoint: endpoint}); err != nil {
+		t.Fatalf("down send() error = %v", err)
+	}
+	if err := d.send(context.Background(), KindTwilioSMS, cfg, Alert{Event: EventEndpointRecovered, Endpoint: endpoint}); err != nil {
+		t.Fatalf("recovered send() error = %v", err)
+	}
+	if strings.Join(bodies, ",") != "pingdan: API DOWN,pingdan: API RECOVERED" {
+		t.Errorf("bodies = %#v, want terse state bodies", bodies)
+	}
+}
+
+func TestSendTwilioSMSRequiresEnv(t *testing.T) {
+	d := &Dispatcher{Logger: testLogger()}
+	err := d.SendTest(context.Background(), KindTwilioSMS, []byte(`{"to":"+15551112222"}`))
+	if err == nil {
+		t.Fatal("SendTest() error = nil, want twilio config error")
+	}
+	if !strings.Contains(err.Error(), "twilio not configured") {
+		t.Errorf("error = %q, want twilio not configured", err.Error())
+	}
+}
+
+func TestSendOpsgenieCreateAndClose(t *testing.T) {
+	type request struct {
+		Method string
+		Path   string
+		Query  string
+		Auth   string
+		Body   map[string]any
+	}
+	var requests []request
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Errorf("decode payload: %v", err)
+		}
+		requests = append(requests, request{
+			Method: r.Method,
+			Path:   r.URL.Path,
+			Query:  r.URL.RawQuery,
+			Auth:   r.Header.Get("Authorization"),
+			Body:   body,
+		})
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	defer srv.Close()
+
+	d := &Dispatcher{Logger: testLogger(), OpsgenieBaseURL: srv.URL}
+	cfg := []byte(`{"apiKey":"ops-key","region":"eu"}`)
+	endpoint := AlertEndpoint{ID: "ep_123", Name: "API", URL: "https://example.com"}
+	if err := d.send(context.Background(), KindOpsgenie, cfg, Alert{
+		Event:    EventEndpointDown,
+		Endpoint: endpoint,
+		Subject:  "API down",
+		Body:     "Endpoint: API",
+	}); err != nil {
+		t.Fatalf("down send() error = %v", err)
+	}
+	if err := d.send(context.Background(), KindOpsgenie, cfg, Alert{
+		Event:    EventEndpointRecovered,
+		Endpoint: endpoint,
+		Subject:  "API recovered",
+		Body:     "Endpoint: API",
+	}); err != nil {
+		t.Fatalf("recovered send() error = %v", err)
+	}
+	if err := d.send(context.Background(), KindOpsgenie, cfg, Alert{
+		Event:    EventSSLExpiring,
+		Endpoint: endpoint,
+		Subject:  "SSL expiring",
+		Body:     "Renew cert",
+	}); err != nil {
+		t.Fatalf("ssl send() error = %v", err)
+	}
+
+	if len(requests) != 3 {
+		t.Fatalf("requests length = %d, want 3", len(requests))
+	}
+	if requests[0].Method != http.MethodPost || requests[0].Path != "/v2/alerts" {
+		t.Errorf("create request = %s %s, want POST /v2/alerts", requests[0].Method, requests[0].Path)
+	}
+	if requests[0].Auth != "GenieKey ops-key" {
+		t.Errorf("auth = %q, want GenieKey", requests[0].Auth)
+	}
+	if requests[0].Body["alias"] != "pingdan-endpoint-ep_123" || requests[0].Body["priority"] != "P1" {
+		t.Errorf("create body = %#v, want endpoint alias and P1", requests[0].Body)
+	}
+	if requests[1].Path != "/v2/alerts/pingdan-endpoint-ep_123/close" || requests[1].Query != "identifierType=alias" {
+		t.Errorf("close target = %s?%s, want alias close", requests[1].Path, requests[1].Query)
+	}
+	if requests[1].Body["source"] != "pingdan" || requests[1].Body["user"] != "pingdan" {
+		t.Errorf("close body = %#v, want pingdan source/user", requests[1].Body)
+	}
+	if requests[2].Body["alias"] != "pingdan-ssl-ep_123" || requests[2].Body["priority"] != "P3" {
+		t.Errorf("ssl body = %#v, want ssl alias and P3", requests[2].Body)
+	}
+}
+
+func TestSendOpsgenieTestCreatesAndCloses(t *testing.T) {
+	var paths []string
+	var aliases []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			t.Errorf("decode payload: %v", err)
+		}
+		paths = append(paths, r.URL.Path)
+		if alias, ok := body["alias"].(string); ok {
+			aliases = append(aliases, alias)
+		}
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	defer srv.Close()
+
+	d := &Dispatcher{Logger: testLogger(), OpsgenieBaseURL: srv.URL}
+	if err := d.SendTest(context.Background(), KindOpsgenie, []byte(`{"apiKey":"ops-key","region":"us"}`)); err != nil {
+		t.Fatalf("SendTest() error = %v", err)
+	}
+	if strings.Join(paths, ",") != "/v2/alerts,/v2/alerts/pingdan-test/close" {
+		t.Errorf("paths = %#v, want create then close", paths)
+	}
+	if len(aliases) != 1 || aliases[0] != "pingdan-test" {
+		t.Errorf("aliases = %#v, want pingdan-test create alias", aliases)
+	}
+}
+
+func TestSendOpsgenieRejectsBadRegion(t *testing.T) {
+	d := &Dispatcher{Logger: testLogger()}
+	err := d.SendTest(context.Background(), KindOpsgenie, []byte(`{"apiKey":"ops-key","region":"apac"}`))
+	if err == nil {
+		t.Fatal("SendTest() error = nil, want bad region error")
+	}
+	if !strings.Contains(err.Error(), "us or eu") {
+		t.Errorf("error = %q, want region message", err.Error())
+	}
+}
+
 func testLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }

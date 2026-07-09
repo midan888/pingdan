@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -30,6 +31,8 @@ const (
 	KindPagerDuty = "pagerduty"
 	KindNtfy      = "ntfy"
 	KindPushover  = "pushover"
+	KindTwilioSMS = "twilio_sms"
+	KindOpsgenie  = "opsgenie"
 
 	EventEndpointDown      = "endpoint.down"
 	EventEndpointRecovered = "endpoint.recovered"
@@ -41,6 +44,9 @@ const (
 	defaultPagerDutyEventsURL = "https://events.pagerduty.com/v2/enqueue"
 	defaultPushoverBaseURL    = "https://api.pushover.net"
 	defaultNtfyServer         = "https://ntfy.sh"
+	defaultTwilioBaseURL      = "https://api.twilio.com"
+	defaultOpsgenieUSBaseURL  = "https://api.opsgenie.com"
+	defaultOpsgenieEUBaseURL  = "https://api.eu.opsgenie.com"
 	postJSONTimeout           = 10 * time.Second
 )
 
@@ -54,6 +60,8 @@ var ValidKinds = []string{
 	KindPagerDuty,
 	KindNtfy,
 	KindPushover,
+	KindTwilioSMS,
+	KindOpsgenie,
 }
 
 func IsValidKind(kind string) bool {
@@ -82,6 +90,13 @@ type Dispatcher struct {
 
 	PushoverAppToken string
 	PushoverBaseURL  string
+
+	TwilioAccountSID string
+	TwilioAuthToken  string
+	TwilioFrom       string
+	TwilioBaseURL    string
+
+	OpsgenieBaseURL string
 }
 
 type Alert struct {
@@ -138,6 +153,8 @@ func (d *Dispatcher) senders() map[string]alertSender {
 		KindPagerDuty: d.sendPagerDuty,
 		KindNtfy:      d.sendNtfy,
 		KindPushover:  d.sendPushover,
+		KindTwilioSMS: d.sendTwilioSMS,
+		KindOpsgenie:  d.sendOpsgenie,
 	}
 }
 
@@ -578,6 +595,193 @@ func (d *Dispatcher) sendPushover(ctx context.Context, cfg []byte, a Alert) erro
 	return d.postForm(ctx, d.pushoverBaseURL()+"/1/messages.json", nil, form)
 }
 
+type twilioSMSConfig struct {
+	To string `json:"to"`
+}
+
+func (d *Dispatcher) sendTwilioSMS(ctx context.Context, cfg []byte, a Alert) error {
+	if d.TwilioAccountSID == "" || d.TwilioAuthToken == "" || d.TwilioFrom == "" {
+		d.logger().Warn("alerts: twilio not configured")
+		return fmt.Errorf("twilio not configured")
+	}
+	var tc twilioSMSConfig
+	if err := json.Unmarshal(cfg, &tc); err != nil || tc.To == "" {
+		d.logger().Error("alerts: bad twilio sms config")
+		return fmt.Errorf("bad twilio sms config")
+	}
+	form := url.Values{}
+	form.Set("From", d.TwilioFrom)
+	form.Set("To", tc.To)
+	form.Set("Body", smsBody(a))
+	headers := map[string]string{
+		"Authorization": "Basic " + base64.StdEncoding.EncodeToString([]byte(d.TwilioAccountSID+":"+d.TwilioAuthToken)),
+	}
+	endpointURL := fmt.Sprintf("%s/2010-04-01/Accounts/%s/Messages.json", d.twilioBaseURL(), url.PathEscape(d.TwilioAccountSID))
+	return d.postForm(ctx, endpointURL, headers, form)
+}
+
+func smsBody(a Alert) string {
+	switch a.Event {
+	case EventEndpointDown:
+		return fmt.Sprintf("pingdan: %s DOWN", alertEndpointName(a))
+	case EventEndpointRecovered:
+		return fmt.Sprintf("pingdan: %s RECOVERED", alertEndpointName(a))
+	case EventSSLExpiring:
+		if a.SSL != nil {
+			return fmt.Sprintf("pingdan: %s SSL expires in %d days", alertEndpointName(a), a.SSL.DaysLeft)
+		}
+		return fmt.Sprintf("pingdan: %s SSL expiring", alertEndpointName(a))
+	case EventTest:
+		return "pingdan: test alert"
+	default:
+		return truncateRunes("pingdan: "+a.Subject, 160)
+	}
+}
+
+func alertEndpointName(a Alert) string {
+	if a.Endpoint.Name != "" {
+		return a.Endpoint.Name
+	}
+	return "endpoint"
+}
+
+type opsgenieConfig struct {
+	APIKey string `json:"apiKey"`
+	Region string `json:"region,omitempty"`
+}
+
+type opsgenieAlertPayload struct {
+	Message     string            `json:"message"`
+	Alias       string            `json:"alias"`
+	Description string            `json:"description,omitempty"`
+	Source      string            `json:"source"`
+	Priority    string            `json:"priority"`
+	Details     map[string]string `json:"details,omitempty"`
+}
+
+type opsgenieClosePayload struct {
+	User   string `json:"user"`
+	Source string `json:"source"`
+	Note   string `json:"note"`
+}
+
+func (d *Dispatcher) sendOpsgenie(ctx context.Context, cfg []byte, a Alert) error {
+	var oc opsgenieConfig
+	if err := json.Unmarshal(cfg, &oc); err != nil || oc.APIKey == "" {
+		d.logger().Error("alerts: bad opsgenie config")
+		return fmt.Errorf("bad opsgenie config")
+	}
+	baseURL, err := d.opsgenieBaseURL(oc.Region)
+	if err != nil {
+		return err
+	}
+	headers := map[string]string{"Authorization": "GenieKey " + oc.APIKey}
+
+	switch a.Event {
+	case EventEndpointRecovered:
+		return d.closeOpsgenieAlert(ctx, baseURL, headers, opsgenieEndpointAlias(a), a)
+	case EventTest:
+		if err := d.createOpsgenieAlert(ctx, baseURL, headers, opsgenieTestAlias(), a); err != nil {
+			return err
+		}
+		return d.closeOpsgenieAlert(ctx, baseURL, headers, opsgenieTestAlias(), a)
+	default:
+		return d.createOpsgenieAlert(ctx, baseURL, headers, opsgenieAlias(a), a)
+	}
+}
+
+func (d *Dispatcher) createOpsgenieAlert(ctx context.Context, baseURL string, headers map[string]string, alias string, a Alert) error {
+	payload := opsgenieAlertPayload{
+		Message:     truncateRunes(a.Subject, 130),
+		Alias:       alias,
+		Description: a.Body,
+		Source:      "pingdan",
+		Priority:    opsgeniePriority(a),
+		Details:     opsgenieDetails(a),
+	}
+	if payload.Message == "" {
+		payload.Message = "pingdan alert"
+	}
+	if err := d.postJSON(ctx, baseURL+"/v2/alerts", headers, payload); err != nil {
+		return fmt.Errorf("opsgenie create: %w", err)
+	}
+	return nil
+}
+
+func (d *Dispatcher) closeOpsgenieAlert(ctx context.Context, baseURL string, headers map[string]string, alias string, a Alert) error {
+	escapedAlias := url.PathEscape(alias)
+	payload := opsgenieClosePayload{
+		User:   "pingdan",
+		Source: "pingdan",
+		Note:   a.Subject,
+	}
+	if payload.Note == "" {
+		payload.Note = "pingdan resolved alert"
+	}
+	if err := d.postJSON(ctx, baseURL+"/v2/alerts/"+escapedAlias+"/close?identifierType=alias", headers, payload); err != nil {
+		return fmt.Errorf("opsgenie close: %w", err)
+	}
+	return nil
+}
+
+func opsgenieAlias(a Alert) string {
+	if a.Event == EventSSLExpiring {
+		return "pingdan-ssl-" + a.Endpoint.ID
+	}
+	if a.Event == EventTest {
+		return opsgenieTestAlias()
+	}
+	return opsgenieEndpointAlias(a)
+}
+
+func opsgenieEndpointAlias(a Alert) string {
+	return "pingdan-endpoint-" + a.Endpoint.ID
+}
+
+func opsgenieTestAlias() string {
+	return "pingdan-test"
+}
+
+func opsgeniePriority(a Alert) string {
+	switch a.Event {
+	case EventEndpointDown:
+		return "P1"
+	case EventSSLExpiring:
+		return "P3"
+	case EventTest:
+		return "P5"
+	default:
+		return "P3"
+	}
+}
+
+func opsgenieDetails(a Alert) map[string]string {
+	details := map[string]string{"event": a.Event}
+	if a.Endpoint.ID != "" {
+		details["endpointId"] = a.Endpoint.ID
+	}
+	if a.Endpoint.Name != "" {
+		details["endpointName"] = a.Endpoint.Name
+	}
+	if a.Endpoint.URL != "" {
+		details["endpointUrl"] = a.Endpoint.URL
+	}
+	if a.Check != nil {
+		if a.Check.StatusCode != nil {
+			details["statusCode"] = fmt.Sprintf("%d", *a.Check.StatusCode)
+		}
+		if a.Check.Error != nil && *a.Check.Error != "" {
+			details["error"] = *a.Check.Error
+		}
+		details["checkedAt"] = a.Check.CheckedAt.Format(time.RFC3339)
+	}
+	if a.SSL != nil {
+		details["sslDaysLeft"] = fmt.Sprintf("%d", a.SSL.DaysLeft)
+		details["sslExpiresAt"] = a.SSL.ExpiresAt.Format(time.RFC3339)
+	}
+	return details
+}
+
 func (d *Dispatcher) postJSON(ctx context.Context, url string, headers map[string]string, payload any) error {
 	return d.postJSONPayload(ctx, url, headers, payload, false)
 }
@@ -707,6 +911,27 @@ func (d *Dispatcher) pushoverBaseURL() string {
 		return defaultPushoverBaseURL
 	}
 	return strings.TrimRight(d.PushoverBaseURL, "/")
+}
+
+func (d *Dispatcher) twilioBaseURL() string {
+	if d.TwilioBaseURL == "" {
+		return defaultTwilioBaseURL
+	}
+	return strings.TrimRight(d.TwilioBaseURL, "/")
+}
+
+func (d *Dispatcher) opsgenieBaseURL(region string) (string, error) {
+	if d.OpsgenieBaseURL != "" {
+		return strings.TrimRight(d.OpsgenieBaseURL, "/"), nil
+	}
+	switch strings.ToLower(strings.TrimSpace(region)) {
+	case "", "us":
+		return defaultOpsgenieUSBaseURL, nil
+	case "eu":
+		return defaultOpsgenieEUBaseURL, nil
+	default:
+		return "", fmt.Errorf("opsgenie region must be us or eu")
+	}
 }
 
 func (d *Dispatcher) logger() *slog.Logger {

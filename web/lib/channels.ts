@@ -10,6 +10,8 @@ export type ChannelField = {
   inputMode?: ChannelInputMode;
   optional?: boolean;
   sensitive?: boolean;
+  defaultValue?: string;
+  options?: { value: string; label: string }[];
   validate?: (value: string) => string | null;
 };
 
@@ -201,6 +203,46 @@ export const CHANNEL_KINDS: ChannelKindDefinition[] = [
       },
     ],
   },
+  {
+    value: "twilio_sms",
+    label: "Twilio SMS",
+    icon: "S",
+    fields: [
+      {
+        key: "to",
+        label: "Phone number",
+        placeholder: "+15551234567",
+        hint: "Requires TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_FROM on this deployment.",
+        inputMode: "tel",
+        validate: (value) =>
+          /^\+[1-9]\d{6,14}$/.test(value) ? null : "Enter a valid E.164 phone number, like +15551234567.",
+      },
+    ],
+  },
+  {
+    value: "opsgenie",
+    label: "Opsgenie",
+    icon: "O",
+    fields: [
+      {
+        key: "apiKey",
+        label: "API key",
+        placeholder: "Opsgenie API integration key",
+        hint: "Use an API integration key with permission to create and close alerts.",
+        sensitive: true,
+      },
+      {
+        key: "region",
+        label: "Region",
+        placeholder: "us",
+        defaultValue: "us",
+        options: [
+          { value: "us", label: "US" },
+          { value: "eu", label: "EU" },
+        ],
+      },
+    ],
+  },
 ];
 
 export function channelKind(kind: AlertChannelKind): ChannelKindDefinition {
@@ -224,7 +266,7 @@ export function channelTarget(channel: Pick<AlertChannel, "kind" | "config">): s
 export function configForKind(kind: AlertChannelKind, values: Record<string, string>): Record<string, string> {
   const config: Record<string, string> = {};
   for (const field of channelKind(kind).fields) {
-    const value = (values[field.key] ?? "").trim();
+    const value = (values[field.key] ?? field.defaultValue ?? "").trim();
     if (value || !field.optional) config[field.key] = value;
   }
   return config;
@@ -232,8 +274,11 @@ export function configForKind(kind: AlertChannelKind, values: Record<string, str
 
 export function validateChannelConfig(kind: AlertChannelKind, values: Record<string, string>): string | null {
   for (const field of channelKind(kind).fields) {
-    const value = (values[field.key] ?? "").trim();
+    const value = (values[field.key] ?? field.defaultValue ?? "").trim();
     if (!field.optional && !value) return `${field.label} is required.`;
+    if (value && field.options && !field.options.some((option) => option.value === value)) {
+      return `Choose a valid ${field.label.toLowerCase()}.`;
+    }
     if (value && field.validate) {
       const error = field.validate(value);
       if (error) return error;

@@ -72,6 +72,9 @@ func main() {
 		EmailFrom:        cfg.EmailFrom,
 		TelegramBotToken: cfg.TelegramBotToken,
 		PushoverAppToken: cfg.PushoverAppToken,
+		TwilioAccountSID: cfg.TwilioAccountSID,
+		TwilioAuthToken:  cfg.TwilioAuthToken,
+		TwilioFrom:       cfg.TwilioFrom,
 	}
 	scheduler := pinger.NewScheduler(ctx, endpointStore, checkStore, assertionStore, dispatcher, logger)
 	if err := scheduler.Start(ctx); err != nil {

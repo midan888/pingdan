@@ -155,7 +155,9 @@ export type AlertChannelKind =
   | "webhook"
   | "pagerduty"
   | "ntfy"
-  | "pushover";
+  | "pushover"
+  | "twilio_sms"
+  | "opsgenie";
 
 export type AlertChannel = {
   id: string;

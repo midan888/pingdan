@@ -35,6 +35,9 @@ services:
       EMAIL_FROM: ${EMAIL_FROM}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
       PUSHOVER_APP_TOKEN: ${PUSHOVER_APP_TOKEN}
+      TWILIO_ACCOUNT_SID: ${TWILIO_ACCOUNT_SID}
+      TWILIO_AUTH_TOKEN: ${TWILIO_AUTH_TOKEN}
+      TWILIO_FROM: ${TWILIO_FROM}
     depends_on:
       postgres:
         condition: service_healthy

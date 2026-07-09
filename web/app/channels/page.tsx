@@ -163,14 +163,26 @@ export default function ChannelsPage() {
                   {field.label}
                   {field.optional && <span className="faint"> (optional)</span>}
                 </label>
-                <input
-                  type={field.sensitive ? "password" : "text"}
-                  placeholder={field.placeholder}
-                  value={values[field.key] ?? ""}
-                  onChange={(e) => updateValue(field.key, e.target.value)}
-                  inputMode={field.inputMode}
-                  required={!field.optional}
-                />
+                {field.options ? (
+                  <select
+                    value={values[field.key] ?? field.defaultValue ?? ""}
+                    onChange={(e) => updateValue(field.key, e.target.value)}
+                    required={!field.optional}
+                  >
+                    {field.options.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type={field.sensitive ? "password" : "text"}
+                    placeholder={field.placeholder}
+                    value={values[field.key] ?? field.defaultValue ?? ""}
+                    onChange={(e) => updateValue(field.key, e.target.value)}
+                    inputMode={field.inputMode}
+                    required={!field.optional}
+                  />
+                )}
                 {field.hint && <div className="hint">{field.hint}</div>}
               </div>
             ))}

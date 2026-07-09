@@ -25,6 +25,10 @@ type Config struct {
 	TelegramBotToken string
 
 	PushoverAppToken string
+
+	TwilioAccountSID string
+	TwilioAuthToken  string
+	TwilioFrom       string
 }
 
 func Load() (*Config, error) {
@@ -43,6 +47,9 @@ func Load() (*Config, error) {
 		EmailFrom:          getenv("EMAIL_FROM", "alerts@pingdan.local"),
 		TelegramBotToken:   os.Getenv("TELEGRAM_BOT_TOKEN"),
 		PushoverAppToken:   os.Getenv("PUSHOVER_APP_TOKEN"),
+		TwilioAccountSID:   os.Getenv("TWILIO_ACCOUNT_SID"),
+		TwilioAuthToken:    os.Getenv("TWILIO_AUTH_TOKEN"),
+		TwilioFrom:         os.Getenv("TWILIO_FROM"),
 	}
 
 	if c.DatabaseURL == "" {

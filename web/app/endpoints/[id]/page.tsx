@@ -233,7 +233,7 @@ export default function EndpointDetailPage() {
               </div>
             </div>
 
-            <div className="grid grid-4" style={{ marginBottom: "1rem" }}>
+            <div className="grid grid-4 stat-strip" style={{ marginBottom: "1rem" }}>
               <div className="card stat">
                 <div className="label">Uptime</div>
                 <div className="value" style={{ color: stats && stats.uptimePct >= 99 ? "var(--up)" : stats && stats.uptimePct < 95 ? "var(--down)" : undefined }}>

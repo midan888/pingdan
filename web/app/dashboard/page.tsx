@@ -146,7 +146,7 @@ export default function DashboardPage() {
         </div>
 
         {/* summary cards */}
-        <div className="grid grid-5" style={{ marginBottom: "1.5rem" }}>
+        <div className="grid grid-5 stat-strip" style={{ marginBottom: "1.5rem" }}>
           <div className="card stat">
             <div className="label">Operational</div>
             <div className="value" style={{ color: "var(--up)" }}>{up}</div>

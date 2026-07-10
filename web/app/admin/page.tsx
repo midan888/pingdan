@@ -44,7 +44,7 @@ export default function AdminPage() {
           <p className="muted">Loading…</p>
         ) : (
           <>
-            <div className="grid grid-5" style={{ marginBottom: "1.5rem" }}>
+            <div className="grid grid-5 stat-strip" style={{ marginBottom: "1.5rem" }}>
               <div className="card stat">
                 <div className="label">Users</div>
                 <div className="value">{stats?.userCount ?? "—"}</div>

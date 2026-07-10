@@ -53,6 +53,26 @@ export class NotFoundError extends Error {
   }
 }
 
+export type Me = {
+  id: string;
+  email: string;
+  isAdmin: boolean;
+};
+
+export type AdminStats = {
+  userCount: number;
+  endpointCount: number;
+};
+
+export type AdminUser = {
+  id: string;
+  email: string;
+  name: string | null;
+  provider: string | null;
+  createdAt: string;
+  endpointCount: number;
+};
+
 export type Group = {
   id: string;
   name: string;

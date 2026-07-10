@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -29,6 +30,15 @@ type Config struct {
 	TwilioAccountSID string
 	TwilioAuthToken  string
 	TwilioFrom       string
+
+	// AdminEmails is the set of accounts allowed to use the admin API,
+	// keyed by lowercased email.
+	AdminEmails map[string]bool
+}
+
+// IsAdmin reports whether the given account email is on the admin allowlist.
+func (c *Config) IsAdmin(email string) bool {
+	return c.AdminEmails[strings.ToLower(strings.TrimSpace(email))]
 }
 
 func Load() (*Config, error) {
@@ -50,6 +60,7 @@ func Load() (*Config, error) {
 		TwilioAccountSID:   os.Getenv("TWILIO_ACCOUNT_SID"),
 		TwilioAuthToken:    os.Getenv("TWILIO_AUTH_TOKEN"),
 		TwilioFrom:         os.Getenv("TWILIO_FROM"),
+		AdminEmails:        parseEmailSet(os.Getenv("ADMIN_EMAILS")),
 	}
 
 	if c.DatabaseURL == "" {
@@ -66,6 +77,17 @@ func getenv(k, def string) string {
 		return v
 	}
 	return def
+}
+
+func parseEmailSet(v string) map[string]bool {
+	set := map[string]bool{}
+	for _, e := range strings.Split(v, ",") {
+		e = strings.ToLower(strings.TrimSpace(e))
+		if e != "" {
+			set[e] = true
+		}
+	}
+	return set
 }
 
 func durationEnv(k string, def time.Duration) time.Duration {

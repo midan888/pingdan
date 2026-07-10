@@ -110,7 +110,7 @@ func main() {
 		r.Use(httpx.AuthMiddleware(jwt))
 		r.Get("/me", func(w http.ResponseWriter, r *http.Request) {
 			u := httpx.UserFrom(r.Context())
-			httpx.WriteJSON(w, 200, map[string]string{"id": u.ID, "email": u.Email})
+			httpx.WriteJSON(w, 200, map[string]any{"id": u.ID, "email": u.Email, "isAdmin": cfg.IsAdmin(u.Email)})
 		})
 		epH := &httpx.EndpointHandlers{Store: endpointStore, Checks: checkStore, Assertions: assertionStore, Scheduler: scheduler, SSL: sslChecker, Pool: pool}
 		epH.Routes(r)
@@ -120,6 +120,8 @@ func main() {
 		grH.Routes(r)
 		spH := &httpx.StatusPageHandlers{Store: statusPageStore, Endpoints: endpointStore}
 		spH.Routes(r)
+		adH := &httpx.AdminHandlers{Pool: pool, IsAdmin: cfg.IsAdmin}
+		adH.Routes(r)
 	})
 
 	srv := &http.Server{Addr: cfg.HTTPAddr, Handler: r, ReadHeaderTimeout: 10 * time.Second}

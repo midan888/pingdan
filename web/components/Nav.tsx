@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { clearToken } from "@/lib/api";
+import { useEffect, useState } from "react";
+import { api, clearToken, getToken, type Me } from "@/lib/api";
 
-const links = [
+const baseLinks = [
   { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
   { href: "/endpoints", label: "Endpoints", icon: "endpoints" },
   { href: "/groups", label: "Groups", icon: "groups" },
@@ -12,7 +13,11 @@ const links = [
   { href: "/status-pages", label: "Status", icon: "status" },
 ] as const;
 
-function TabIcon({ name }: { name: (typeof links)[number]["icon"] }) {
+const adminLink = { href: "/admin", label: "Admin", icon: "admin" } as const;
+
+type NavLink = (typeof baseLinks)[number] | typeof adminLink;
+
+function TabIcon({ name }: { name: NavLink["icon"] }) {
   const common = {
     width: 22,
     height: 22,
@@ -61,12 +66,26 @@ function TabIcon({ name }: { name: (typeof links)[number]["icon"] }) {
           <path d="M9 21h6" />
         </svg>
       );
+    case "admin":
+      return (
+        <svg {...common}>
+          <path d="M12 3l7 3v5c0 4.5-3 8.5-7 10-4-1.5-7-5.5-7-10V6l7-3z" />
+        </svg>
+      );
   }
 }
 
 export function Nav() {
   const router = useRouter();
   const pathname = usePathname();
+  const [isAdmin, setIsAdmin] = useState(false);
+  useEffect(() => {
+    if (!getToken()) return;
+    api<Me>("/me")
+      .then((me) => setIsAdmin(me.isAdmin))
+      .catch(() => {});
+  }, []);
+  const links: readonly NavLink[] = isAdmin ? [...baseLinks, adminLink] : baseLinks;
   const logout = () => {
     clearToken();
     router.push("/login");

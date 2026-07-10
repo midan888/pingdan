@@ -492,6 +492,17 @@ td.num { font-variant-numeric: tabular-nums; }
 .prose pre { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; overflow-x: auto; }
 .prose pre code { background: none; border: none; padding: 0; }
 .callout { border: 1px solid var(--border-strong); border-left: 3px solid var(--group-accent, var(--accent)); border-radius: 8px; background: var(--bg-elev); padding: 0.9rem 1.1rem; margin: 1.25rem 0; }
+.guide-list { display: grid; gap: 1rem; margin: 1.25rem 0 2rem; }
+.guide-block { border: 1px solid var(--border); border-radius: 8px; background: var(--bg-elev); padding: 1.1rem; scroll-margin-top: 90px; }
+.guide-block h3 { margin-top: 0; }
+.guide-block h4 { margin: 1rem 0 0.35rem; font-size: 0.78rem; line-height: 1.4; color: var(--text-faint); text-transform: uppercase; font-weight: 700; }
+.guide-block ul, .guide-block ol { margin-top: 0.25rem; }
+.guide-block pre { margin: 0.45rem 0 0.8rem; }
+.guide-head p { color: var(--text-dim); margin-bottom: 0; }
+.guide-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items: start; }
+.doc-links { display: flex; flex-wrap: wrap; gap: 0.45rem 0.65rem; color: var(--text-faint); font-size: 0.86rem; }
+.doc-links span { color: var(--text-dim); font-weight: 600; }
+@media (max-width: 720px) { .guide-cols { grid-template-columns: 1fr; gap: 0.25rem; } }
 
 /* about */
 .team-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }

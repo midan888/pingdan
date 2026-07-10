@@ -15,11 +15,54 @@ export function clearToken() {
   window.localStorage.removeItem(TOKEN_KEY);
 }
 
+/** Reads iat/exp (unix seconds) from a JWT without verifying it. */
+function tokenLifetime(token: string): { iat: number; exp: number } | null {
+  try {
+    const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    if (typeof payload.iat !== "number" || typeof payload.exp !== "number") return null;
+    return { iat: payload.iat, exp: payload.exp };
+  } catch {
+    return null;
+  }
+}
+
+let refreshInFlight: Promise<void> | null = null;
+
+/**
+ * Sliding session: once the token is past half its lifetime, swap it for a
+ * fresh one in the background. Fire-and-forget — the current request keeps
+ * the old (still valid) token, and a failed refresh changes nothing; the
+ * session simply keeps its original expiry.
+ */
+function maybeRefreshToken(token: string) {
+  if (refreshInFlight) return;
+  const life = tokenLifetime(token);
+  if (!life) return;
+  const now = Date.now() / 1000;
+  if (now < life.iat + (life.exp - life.iat) / 2 || now >= life.exp) return;
+  refreshInFlight = fetch(`${API_URL}/auth/refresh`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  })
+    .then(async (res) => {
+      if (!res.ok) return;
+      const body = (await res.json()) as { token?: string };
+      if (body.token) setToken(body.token);
+    })
+    .catch(() => {})
+    .finally(() => {
+      refreshInFlight = null;
+    });
+}
+
 export async function api<T = unknown>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getToken();
   const headers = new Headers(init.headers);
   headers.set("Content-Type", "application/json");
-  if (token) headers.set("Authorization", `Bearer ${token}`);
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+    maybeRefreshToken(token);
+  }
 
   const res = await fetch(`${API_URL}${path}`, { ...init, headers });
   if (res.status === 401) {

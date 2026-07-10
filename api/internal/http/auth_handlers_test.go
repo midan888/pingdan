@@ -1,6 +1,7 @@
 package httpx
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -57,6 +58,63 @@ func TestAuthStartSetsStateCookieAndRedirects(t *testing.T) {
 	}
 	if u.Query().Get("redirect_uri") != "https://api.example.com/auth/google/callback" {
 		t.Fatalf("redirect_uri = %q, want callback URL", u.Query().Get("redirect_uri"))
+	}
+}
+
+func TestAuthRefreshIssuesFreshToken(t *testing.T) {
+	j := auth.NewJWT("secret", time.Hour)
+	h := &AuthHandlers{JWT: j}
+	r := chi.NewRouter()
+	r.Group(func(r chi.Router) {
+		r.Use(AuthMiddleware(j))
+		h.AuthedRoutes(r)
+	})
+
+	tok, err := j.Issue("user-1", "u@example.com")
+	if err != nil {
+		t.Fatalf("issue: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/auth/refresh", nil)
+	req.Header.Set("Authorization", "Bearer "+tok)
+
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200, body = %q", rec.Code, rec.Body.String())
+	}
+	var out struct {
+		Token string `json:"token"`
+	}
+	if err := json.NewDecoder(rec.Body).Decode(&out); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	claims, err := j.Parse(out.Token)
+	if err != nil {
+		t.Fatalf("parse issued token: %v", err)
+	}
+	if claims.UserID != "user-1" || claims.Email != "u@example.com" {
+		t.Fatalf("claims = %+v, want original user", claims)
+	}
+}
+
+func TestAuthRefreshRejectsMissingToken(t *testing.T) {
+	j := auth.NewJWT("secret", time.Hour)
+	h := &AuthHandlers{JWT: j}
+	r := chi.NewRouter()
+	r.Group(func(r chi.Router) {
+		r.Use(AuthMiddleware(j))
+		h.AuthedRoutes(r)
+	})
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/auth/refresh", nil)
+
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", rec.Code)
 	}
 }
 

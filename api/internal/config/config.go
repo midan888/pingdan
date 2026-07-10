@@ -46,7 +46,7 @@ func Load() (*Config, error) {
 		HTTPAddr:           getenv("HTTP_ADDR", ":8080"),
 		DatabaseURL:        os.Getenv("DATABASE_URL"),
 		JWTSecret:          os.Getenv("JWT_SECRET"),
-		JWTTTL:             durationEnv("JWT_TTL", 24*time.Hour),
+		JWTTTL:             durationEnv("JWT_TTL", 168*time.Hour),
 		PublicURL:          getenv("PUBLIC_URL", "http://localhost:8080"),
 		FrontendURL:        getenv("FRONTEND_URL", "http://localhost:3000"),
 		GoogleClientID:     os.Getenv("GOOGLE_CLIENT_ID"),

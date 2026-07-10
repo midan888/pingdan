@@ -14,6 +14,7 @@ import (
 type AuthHandlers struct {
 	OAuth       *auth.OAuth
 	Email       *auth.Email
+	JWT         *auth.JWT
 	FrontendURL string
 }
 
@@ -22,6 +23,23 @@ func (h *AuthHandlers) Routes(r chi.Router) {
 	r.Get("/auth/{provider}/callback", h.callback)
 	r.Post("/auth/email/register", h.emailRegister)
 	r.Post("/auth/email/login", h.emailLogin)
+}
+
+// AuthedRoutes registers auth routes that require a valid token.
+func (h *AuthHandlers) AuthedRoutes(r chi.Router) {
+	r.Post("/auth/refresh", h.refresh)
+}
+
+// refresh re-issues a token for the already-authenticated user, giving the
+// session a sliding expiry: any visit within the TTL extends it by a full TTL.
+func (h *AuthHandlers) refresh(w http.ResponseWriter, r *http.Request) {
+	u := UserFrom(r.Context())
+	tok, err := h.JWT.Issue(u.ID, u.Email)
+	if err != nil {
+		http.Error(w, "issue failed", http.StatusInternalServerError)
+		return
+	}
+	WriteJSON(w, http.StatusOK, map[string]string{"token": tok})
 }
 
 func (h *AuthHandlers) start(w http.ResponseWriter, r *http.Request) {

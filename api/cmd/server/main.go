@@ -99,7 +99,7 @@ func main() {
 
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("ok")) })
 
-	authH := &httpx.AuthHandlers{OAuth: oauthSvc, Email: emailSvc, FrontendURL: cfg.FrontendURL}
+	authH := &httpx.AuthHandlers{OAuth: oauthSvc, Email: emailSvc, JWT: jwt, FrontendURL: cfg.FrontendURL}
 	authH.Routes(r)
 
 	// Public, unauthenticated status pages.
@@ -108,6 +108,7 @@ func main() {
 
 	r.Group(func(r chi.Router) {
 		r.Use(httpx.AuthMiddleware(jwt))
+		authH.AuthedRoutes(r)
 		r.Get("/me", func(w http.ResponseWriter, r *http.Request) {
 			u := httpx.UserFrom(r.Context())
 			httpx.WriteJSON(w, 200, map[string]any{"id": u.ID, "email": u.Email, "isAdmin": cfg.IsAdmin(u.Email)})

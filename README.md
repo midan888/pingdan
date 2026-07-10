@@ -50,6 +50,7 @@ When configuring your OAuth apps, set the callback URLs to:
 | GET    | `/healthz`                                      | —    | Liveness                             |
 | GET    | `/auth/{provider}/start`                        | —    | Begins OAuth (`google` or `github`)  |
 | GET    | `/auth/{provider}/callback`                     | —    | Issues JWT, redirects to frontend    |
+| POST   | `/auth/refresh`                                 | JWT  | Re-issues the JWT (sliding session)  |
 | GET    | `/me`                                           | JWT  | Current user                         |
 | GET    | `/capabilities`                                 | JWT  | Enabled env-backed alert channel kinds |
 | GET    | `/endpoints`                                    | JWT  | List your endpoints                  |

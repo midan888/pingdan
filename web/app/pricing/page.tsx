@@ -76,8 +76,12 @@ export default function PricingPage() {
                     <li key={f}><span className="tick">✓</span><span>{f}</span></li>
                   ))}
                 </ul>
-                <Link href="/register">
-                  <button className={p.featured ? "primary" : ""} style={{ width: "100%" }}>{p.cta}</button>
+                <Link
+                  href="/register"
+                  className={`button-link ${p.featured ? "primary" : ""}`}
+                  style={{ width: "100%" }}
+                >
+                  {p.cta}
                 </Link>
               </div>
             ))}

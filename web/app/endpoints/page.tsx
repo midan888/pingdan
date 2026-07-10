@@ -68,7 +68,7 @@ export default function EndpointsPage() {
             <h1>Endpoints</h1>
             <div className="subtitle">{items.length} monitored endpoint{items.length === 1 ? "" : "s"}</div>
           </div>
-          <Link href="/endpoints/new"><button className="primary">+ New endpoint</button></Link>
+          <Link href="/endpoints/new" className="button-link primary">+ New endpoint</Link>
         </div>
 
         {loading ? (
@@ -76,7 +76,7 @@ export default function EndpointsPage() {
         ) : items.length === 0 ? (
           <div className="empty">
             <p>No endpoints yet.</p>
-            <Link href="/endpoints/new"><button className="primary">Create your first endpoint</button></Link>
+            <Link href="/endpoints/new" className="button-link primary">Create your first endpoint</Link>
           </div>
         ) : (
           <div className="card table-scroll" style={{ padding: 0 }}>

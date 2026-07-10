@@ -113,7 +113,7 @@ export default function StatusPageEditor() {
         <div className="container">
           <div className="empty">
             <p>Status page not found.</p>
-            <Link href="/status-pages"><button>Back to status pages</button></Link>
+            <Link href="/status-pages" className="button-link">Back to status pages</Link>
           </div>
         </div>
       </>
@@ -133,8 +133,8 @@ export default function StatusPageEditor() {
             <div className="subtitle">Configure what visitors see at your public status page.</div>
           </div>
           <div className="row" style={{ gap: "0.6rem" }}>
-            <Link href="/status-pages"><button>Back</button></Link>
-            {page && <Link href={publicPath} target="_blank"><button>View public page</button></Link>}
+            <Link href="/status-pages" className="button-link">Back</Link>
+            {page && <Link href={publicPath} target="_blank" className="button-link">View public page</Link>}
           </div>
         </div>
 

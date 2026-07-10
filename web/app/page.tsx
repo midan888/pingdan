@@ -62,8 +62,8 @@ export default function Landing() {
             before your customers notice — with charts that show exactly what happened.
           </p>
           <div className="cta-row">
-            <Link href="/register"><button className="primary btn-lg">Start monitoring free</button></Link>
-            <Link href="/docs"><button className="btn-lg">Read the docs</button></Link>
+            <Link href="/register" className="button-link primary btn-lg">Start monitoring free</Link>
+            <Link href="/docs" className="button-link btn-lg">Read the docs</Link>
           </div>
           <div className="trust">No credit card · Free forever · Every feature included</div>
           <MiniDashboardPreview />
@@ -110,7 +110,7 @@ export default function Landing() {
           <div className="cta-band">
             <h2>Start monitoring in under a minute</h2>
             <p>Paste a URL, choose what makes a check pass, and you&apos;re live. Free to start.</p>
-            <Link href="/register"><button className="primary btn-lg">Create your free account</button></Link>
+            <Link href="/register" className="button-link primary btn-lg">Create your free account</Link>
           </div>
         </div>
       </section>

@@ -120,9 +120,7 @@ export default function BlogIndexPage() {
           <div className="cta-band">
             <h2>Stop reading about downtime. Catch it.</h2>
             <p>Set up your first monitor free — assertions, charts and instant alerts.</p>
-            <Link href="/register">
-              <button className="primary btn-lg">Start free</button>
-            </Link>
+            <Link href="/register" className="button-link primary btn-lg">Start free</Link>
           </div>
         </div>
       </section>

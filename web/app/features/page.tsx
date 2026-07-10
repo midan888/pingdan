@@ -83,7 +83,7 @@ export default function FeaturesPage() {
           <div className="cta-band">
             <h2>See it on your own endpoints</h2>
             <p>Spin up your first monitor in under a minute.</p>
-            <Link href="/register"><button className="primary btn-lg">Get started free</button></Link>
+            <Link href="/register" className="button-link primary btn-lg">Get started free</Link>
           </div>
         </div>
       </section>

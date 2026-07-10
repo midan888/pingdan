@@ -106,9 +106,7 @@ export default function ArticlePage({ params }: Params) {
               pingdan checks your endpoints around the clock with deep assertions and
               sends instant alerts through the channels your team watches. Free to start.
             </p>
-            <Link href="/register">
-              <button className="primary btn-lg">Start monitoring free</button>
-            </Link>
+            <Link href="/register" className="button-link primary btn-lg">Start monitoring free</Link>
           </div>
         </div>
       </article>

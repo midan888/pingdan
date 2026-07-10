@@ -26,11 +26,11 @@ export function MarketingNav() {
       </nav>
       <div className="right">
         {authed ? (
-          <Link href="/dashboard"><button className="primary">Go to dashboard</button></Link>
+          <Link href="/dashboard" className="button-link primary">Go to dashboard</Link>
         ) : (
           <>
-            <Link href="/login"><button className="ghost">Sign in</button></Link>
-            <Link href="/register"><button className="primary">Start free</button></Link>
+            <Link href="/login" className="button-link ghost">Sign in</Link>
+            <Link href="/register" className="button-link primary">Start free</Link>
           </>
         )}
       </div>

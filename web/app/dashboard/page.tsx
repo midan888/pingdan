@@ -141,7 +141,7 @@ export default function DashboardPage() {
                 {hasUngrouped && <option value={UNGROUPED}>Ungrouped</option>}
               </select>
             )}
-            <Link href="/endpoints/new"><button className="primary">+ New endpoint</button></Link>
+            <Link href="/endpoints/new" className="button-link primary">+ New endpoint</Link>
           </div>
         </div>
 
@@ -174,7 +174,7 @@ export default function DashboardPage() {
         ) : rows.length === 0 ? (
           <div className="empty">
             <p>No endpoints to monitor yet.</p>
-            <Link href="/endpoints/new"><button className="primary">Create your first endpoint</button></Link>
+            <Link href="/endpoints/new" className="button-link primary">Create your first endpoint</Link>
           </div>
         ) : (
           sections.map((section) => {

@@ -78,7 +78,7 @@ export default function AboutPage() {
           <div className="cta-band">
             <h2>Ready to stop guessing?</h2>
             <p>Set up your first monitor free and see the difference depth makes.</p>
-            <Link href="/register"><button className="primary btn-lg">Start free</button></Link>
+            <Link href="/register" className="button-link primary btn-lg">Start free</Link>
           </div>
         </div>
       </section>

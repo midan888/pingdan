@@ -110,8 +110,8 @@ export default function StatusPagesPage() {
                         <div className="mono muted" style={{ fontSize: "0.82rem" }}>/status/{p.slug}</div>
                       </div>
                       <div className="row" style={{ gap: "0.4rem" }}>
-                        <Link href={`/status/${p.slug}`} target="_blank"><button>View</button></Link>
-                        <Link href={`/status-pages/${p.id}`}><button className="primary">Edit</button></Link>
+                        <Link href={`/status/${p.slug}`} target="_blank" className="button-link">View</Link>
+                        <Link href={`/status-pages/${p.id}`} className="button-link primary">Edit</Link>
                       </div>
                     </div>
                   </div>

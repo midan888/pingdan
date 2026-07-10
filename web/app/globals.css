@@ -125,6 +125,61 @@ label { display: block; font-size: 0.78rem; color: var(--text-dim); margin-botto
 }
 .nav a:hover { color: var(--text); background: var(--bg-elev-2); text-decoration: none; }
 .nav a.active { color: var(--text); background: var(--bg-elev-2); }
+.nav .nav-links { display: flex; align-items: center; gap: 0.35rem; }
+
+/* ---------- mobile app navigation: liquid-glass bottom tab bar ---------- */
+.tabbar { display: none; }
+@media (max-width: 720px) {
+  /* top bar collapses to brand + logout; sections move to the tab bar */
+  .nav .nav-links { display: none; }
+  .nav { padding: 0.6rem 1rem; }
+
+  .tabbar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    display: flex;
+    align-items: stretch;
+    justify-content: space-around;
+    padding: 0.35rem 0.5rem calc(0.35rem + env(safe-area-inset-bottom, 0px));
+    background: rgba(13, 17, 23, 0.62);
+    backdrop-filter: blur(18px) saturate(1.6);
+    -webkit-backdrop-filter: blur(18px) saturate(1.6);
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.35);
+  }
+  .tabbar .tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+    padding: 0.35rem 0.25rem;
+    border-radius: var(--radius-sm);
+    color: var(--text-faint);
+    font-size: 0.62rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    min-width: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .tabbar .tab:hover { text-decoration: none; }
+  .tabbar .tab:active { transform: none; background: rgba(255, 255, 255, 0.05); }
+  .tabbar .tab.active { color: var(--accent); }
+  .tabbar .tab svg { flex: none; }
+  .tabbar .tab span {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* keep page content clear of the fixed tab bar (only pages that render it) */
+  body:has(.tabbar) .container { padding-bottom: calc(5.5rem + env(safe-area-inset-bottom, 0px)); }
+  body:has(.tabbar) .form-actions { bottom: calc(3.6rem + env(safe-area-inset-bottom, 0px)); }
+}
 
 /* ---------- cards ---------- */
 .card {
@@ -413,7 +468,54 @@ td.num { font-variant-numeric: tabular-nums; }
 .mkt-nav .links a { color: var(--text-dim); padding: 0.4rem 0.7rem; border-radius: var(--radius-sm); font-weight: 500; font-size: 0.9rem; }
 .mkt-nav .links a:hover { color: var(--text); background: var(--bg-elev-2); text-decoration: none; }
 .mkt-nav .right { margin-left: auto; display: flex; align-items: center; gap: 0.5rem; }
-@media (max-width: 720px) { .mkt-nav .links { display: none; } }
+.mkt-nav .burger { display: none; }
+
+@media (max-width: 720px) {
+  .mkt-nav .links { display: none; }
+  .mkt-nav .right .sign-in { display: none; }
+  .mkt-nav .burger {
+    display: inline-flex;
+    padding: 0.4rem 0.5rem;
+    background: transparent;
+    border-color: transparent;
+    color: var(--text-dim);
+  }
+  .mkt-nav .burger:hover { color: var(--text); background: var(--bg-elev-2); }
+}
+
+/* full-height dropdown under the sticky header */
+.mkt-nav .mobile-menu {
+  position: fixed;
+  top: 57px; /* header height */
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 19;
+  display: flex;
+  flex-direction: column;
+  padding: 0.75rem 1.25rem calc(1.5rem + env(safe-area-inset-bottom, 0px));
+  background: rgba(10, 12, 16, 0.88);
+  backdrop-filter: blur(18px) saturate(1.5);
+  -webkit-backdrop-filter: blur(18px) saturate(1.5);
+  animation: menu-in 0.16s ease-out;
+  overflow-y: auto;
+}
+@keyframes menu-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.mkt-nav .mobile-links { display: flex; flex-direction: column; }
+.mkt-nav .mobile-links a {
+  color: var(--text);
+  font-size: 1.05rem;
+  font-weight: 550;
+  padding: 0.85rem 0.25rem;
+  border-bottom: 1px solid var(--border);
+}
+.mkt-nav .mobile-links a:hover { text-decoration: none; color: var(--accent); }
+.mkt-nav .mobile-cta { display: grid; gap: 0.6rem; margin-top: 1.25rem; }
+.mkt-nav .mobile-cta .button-link { padding: 0.65rem 1rem; font-size: 0.95rem; }
+@media (min-width: 721px) { .mkt-nav .mobile-menu { display: none; } }
 
 /* generic marketing wrapper */
 .mkt-wrap { max-width: 1080px; margin: 0 auto; padding: 0 1.5rem; }

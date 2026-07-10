@@ -46,6 +46,9 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#0b1120",
+  // viewport-fit=cover lets the bottom tab bar extend under the iPhone home
+  // indicator using env(safe-area-inset-bottom)
+  viewportFit: "cover",
 };
 
 const orgJsonLd = {

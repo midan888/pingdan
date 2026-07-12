@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { getToken } from "@/lib/api";
@@ -31,41 +31,54 @@ export function MarketingNav() {
     };
   }, [open]);
 
+  useEffect(() => {
+    if (!open) return;
+
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [open]);
+
   return (
-    <header className="mkt-nav">
-      <Link href="/" className="brand">ping<span className="dot">·</span>dan</Link>
-      <nav className="links">
-        {links.map((l) => (
-          <Link key={l.href} href={l.href}>{l.label}</Link>
-        ))}
-      </nav>
-      <div className="right">
-        {authed ? (
-          <Link href="/dashboard" className="button-link primary">Go to dashboard</Link>
-        ) : (
-          <>
-            <Link href="/login" className="button-link ghost sign-in">Sign in</Link>
-            <Link href="/register" className="button-link primary">Start free</Link>
-          </>
-        )}
-        <button
-          className="burger"
-          aria-label={open ? "Close menu" : "Open menu"}
-          aria-expanded={open}
-          aria-controls="mkt-mobile-menu"
-          onClick={() => setOpen((o) => !o)}
-        >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
-            {open ? (
-              <path d="M6 6l12 12M18 6L6 18" />
-            ) : (
-              <path d="M4 7h16M4 12h16M4 17h16" />
-            )}
-          </svg>
-        </button>
-      </div>
+    <Fragment>
+      <header className="mkt-nav">
+        <Link href="/" className="brand">ping<span className="dot">·</span>dan</Link>
+        <nav className="links">
+          {links.map((l) => (
+            <Link key={l.href} href={l.href}>{l.label}</Link>
+          ))}
+        </nav>
+        <div className="right">
+          {authed ? (
+            <Link href="/dashboard" className="button-link primary">Go to dashboard</Link>
+          ) : (
+            <>
+              <Link href="/login" className="button-link ghost sign-in">Sign in</Link>
+              <Link href="/register" className="button-link primary">Start free</Link>
+            </>
+          )}
+          <button
+            className="burger"
+            aria-label={open ? "Close menu" : "Open menu"}
+            aria-expanded={open}
+            aria-controls="mkt-mobile-menu"
+            onClick={() => setOpen((o) => !o)}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+              {open ? (
+                <path d="M6 6l12 12M18 6L6 18" />
+              ) : (
+                <path d="M4 7h16M4 12h16M4 17h16" />
+              )}
+            </svg>
+          </button>
+        </div>
+      </header>
       {open && (
-        <div id="mkt-mobile-menu" className="mobile-menu">
+        <div id="mkt-mobile-menu" className="mkt-mobile-menu">
           <nav className="mobile-links">
             {links.map((l) => (
               <Link key={l.href} href={l.href}>{l.label}</Link>
@@ -83,6 +96,6 @@ export function MarketingNav() {
           </div>
         </div>
       )}
-    </header>
+    </Fragment>
   );
 }

@@ -5,7 +5,7 @@ const description =
   "Create a free pingdan account and start monitoring HTTP endpoints in a minute — deep assertions, response-time charts, and instant alerts. No credit card required.";
 
 export const metadata: Metadata = {
-  title: "Create your free account — pingdan",
+  title: "Create Your Free Monitoring Account",
   description,
   alternates: { canonical: "/register" },
   openGraph: {

@@ -5,9 +5,13 @@ const cols = [
     title: "Product",
     links: [
       { href: "/features", label: "Features" },
+      { href: "/uptime-monitoring", label: "Uptime monitoring" },
+      { href: "/api-monitoring", label: "API monitoring" },
+      { href: "/ssl-certificate-monitoring", label: "SSL monitoring" },
       { href: "/pricing", label: "Pricing" },
       { href: "/docs", label: "Docs" },
       { href: "/blog", label: "Blog" },
+      { href: "/feed.xml", label: "RSS feed" },
       { href: "/dashboard", label: "Dashboard" },
     ],
   },

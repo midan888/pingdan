@@ -11,6 +11,8 @@ If your website or API goes down at 2am, who finds out first — you, or your cu
 
 This guide explains what uptime monitoring actually is, how it works under the hood, and the common mistakes that let outages slip through even when a monitor is "green."
 
+If you are ready to put the practice into place, pingdan's [free website uptime monitoring](/uptime-monitoring) combines one-minute checks, deep response assertions, latency history, and downtime alerts.
+
 ## What uptime monitoring means
 
 Uptime monitoring is the practice of automatically checking — at a fixed interval — whether a service is reachable and behaving correctly. A monitoring system sends a request to your URL every minute (or every 30 seconds), records what comes back, and alerts you the moment something looks wrong.

@@ -5,7 +5,7 @@ import { Footer } from "@/components/Footer";
 import { Breadcrumbs } from "@/components/JsonLd";
 
 export const metadata: Metadata = {
-  title: "About & Contact — pingdan",
+  title: "About & Contact",
   description:
     "pingdan is uptime and API monitoring built for engineers. Learn what we believe and how to get in touch.",
   alternates: { canonical: "/about" },

@@ -8,7 +8,7 @@ import { JsonLd } from "@/components/JsonLd";
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://pingdan.dev";
 
 export const metadata: Metadata = {
-  title: "pingdan — Uptime & API monitoring with deep assertions",
+  title: { absolute: "pingdan — Uptime & API monitoring with deep assertions" },
   description:
     "Monitor HTTP endpoints from 1-minute intervals. Assert on status codes, headers, body and JSON path, watch response-time charts, and get instant alerts across email, chat, paging, webhooks and SMS.",
   alternates: { canonical: "/" },
@@ -39,6 +39,14 @@ const appJsonLd = {
   url: siteUrl,
   description:
     "Uptime & API monitoring with deep assertions on status, headers, body and JSON path. Response-time charts, uptime history, and instant multi-channel alerts.",
+  featureList: [
+    "1-minute uptime checks",
+    "HTTP status, header, body, JSON path and latency assertions",
+    "Response-time charts and latency percentiles",
+    "SSL certificate expiry monitoring",
+    "Public status pages",
+    "Multi-channel downtime and recovery alerts",
+  ],
   offers: {
     "@type": "Offer",
     price: "0",
@@ -100,6 +108,33 @@ export default function Landing() {
                 <p>{f.desc}</p>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="mkt-section tight">
+        <div className="mkt-wrap">
+          <div className="section-head">
+            <span className="eyebrow">Monitoring by use case</span>
+            <h2>Protect every public endpoint</h2>
+            <p>Start with availability, then validate the response and the certificate behind it.</p>
+          </div>
+          <div className="feature-grid">
+            <Link href="/uptime-monitoring" className="feature solution-link">
+              <h3>Website uptime monitoring</h3>
+              <p>Check availability every minute, measure response time, and alert only after the failure threshold you choose.</p>
+              <span>Explore uptime monitoring →</span>
+            </Link>
+            <Link href="/api-monitoring" className="feature solution-link">
+              <h3>API monitoring</h3>
+              <p>Validate status codes, headers, response bodies, JSON paths, and latency—not merely whether a server answered.</p>
+              <span>Explore API monitoring →</span>
+            </Link>
+            <Link href="/ssl-certificate-monitoring" className="feature solution-link">
+              <h3>SSL certificate monitoring</h3>
+              <p>Track HTTPS certificate expiry automatically and send warnings before a forgotten renewal becomes an outage.</p>
+              <span>Explore SSL monitoring →</span>
+            </Link>
           </div>
         </div>
       </section>

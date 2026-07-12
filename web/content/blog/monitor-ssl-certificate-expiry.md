@@ -7,6 +7,8 @@ tags: [SSL, Monitoring]
 keywords: [ssl certificate monitoring, certificate expiry, tls certificate expired, https monitoring, ssl expiry alert, certificate renewal]
 ---
 
+With pingdan's [SSL certificate monitoring](/ssl-certificate-monitoring), every enabled HTTPS endpoint is inspected automatically and attached alert channels receive expiry warnings before renewal becomes urgent.
+
 An expired SSL certificate is one of the most embarrassing outages a team can ship, precisely because it is 100% preventable. Nothing crashed. No traffic spike took you down. No bad deploy slipped through review. The cert simply hit its `notAfter` date, and now every browser and API client on the planet is refusing to talk to your service. The fix takes minutes; the damage to trust and revenue does not.
 
 The frustrating part is that this keeps happening to teams who *thought* they had it handled. Let's look at why TLS certificates still expire in production, what it costs you, and how a few minutes of monitoring turns a midnight fire drill into a calm calendar reminder.

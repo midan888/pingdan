@@ -7,6 +7,8 @@ tags: [API Monitoring, Best Practices]
 keywords: [api monitoring best practices, api health checks, monitor rest api, api uptime, json assertions, api latency monitoring]
 ---
 
+pingdan's [API monitoring](/api-monitoring) applies these practices with scheduled HTTP checks, JSON path assertions, response-time thresholds, and detailed failure records.
+
 APIs fail in quieter, weirder ways than websites. A page that won't load is obvious; an API that returns `200` with malformed JSON can corrupt data for hours before anyone notices. These nine practices are what separate monitoring that *looks* green from monitoring that actually catches outages.
 
 ## 1. Never trust a bare `200 OK`

@@ -6,6 +6,11 @@ import "./globals.css";
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://pingdan.dev";
 
 export const metadata: Metadata = {
+  applicationName: "pingdan",
+  category: "technology",
+  creator: "pingdan",
+  publisher: "pingdan",
+  referrer: "origin-when-cross-origin",
   metadataBase: new URL(siteUrl),
   title: {
     default: "pingdan — Uptime & API monitoring with deep assertions",
@@ -36,6 +41,11 @@ export const metadata: Metadata = {
     description:
       "Monitor HTTP endpoints with deep assertions, response-time charts, and instant alerts.",
   },
+  icons: {
+    icon: [{ url: "/icon.svg", type: "image/svg+xml" }, { url: "/favicon.ico" }],
+    apple: "/apple-icon.png",
+  },
+  manifest: "/manifest.webmanifest",
   alternates: { canonical: "/" },
   robots: {
     index: true,
@@ -54,9 +64,11 @@ export const viewport: Viewport = {
 const orgJsonLd = {
   "@context": "https://schema.org",
   "@type": "Organization",
+  "@id": `${siteUrl}/#organization`,
   name: "pingdan",
   url: siteUrl,
   logo: `${siteUrl}/icon.png`,
+  email: "support@pingdan.dev",
   contactPoint: {
     "@type": "ContactPoint",
     email: "support@pingdan.dev",
@@ -67,8 +79,11 @@ const orgJsonLd = {
 const siteJsonLd = {
   "@context": "https://schema.org",
   "@type": "WebSite",
+  "@id": `${siteUrl}/#website`,
   name: "pingdan",
+  alternateName: "pingdan uptime monitoring",
   url: siteUrl,
+  publisher: { "@id": `${siteUrl}/#organization` },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

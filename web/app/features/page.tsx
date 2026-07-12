@@ -5,7 +5,7 @@ import { Footer } from "@/components/Footer";
 import { Breadcrumbs } from "@/components/JsonLd";
 
 export const metadata: Metadata = {
-  title: "Features — pingdan uptime & API monitoring",
+  title: "Uptime & API Monitoring Features",
   description:
     "Deep assertions on status, headers, body and JSON path. Response-time charts, uptime history, failure thresholds, and alert integrations for email, chat, webhooks, paging, mobile push, SMS and incident tools.",
   alternates: { canonical: "/features" },

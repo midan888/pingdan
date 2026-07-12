@@ -7,6 +7,8 @@ import { getToken } from "@/lib/api";
 
 const links = [
   { href: "/features", label: "Features" },
+  { href: "/uptime-monitoring", label: "Uptime" },
+  { href: "/api-monitoring", label: "API" },
   { href: "/pricing", label: "Pricing" },
   { href: "/docs", label: "Docs" },
   { href: "/blog", label: "Blog" },

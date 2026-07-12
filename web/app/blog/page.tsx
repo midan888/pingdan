@@ -18,7 +18,10 @@ export const metadata: Metadata = {
     "health checks",
     "alerting best practices",
   ],
-  alternates: { canonical: "/blog" },
+  alternates: {
+    canonical: "/blog",
+    types: { "application/rss+xml": `${siteUrl}/feed.xml` },
+  },
   openGraph: {
     type: "website",
     title: "pingdan Blog — Uptime & API monitoring guides",

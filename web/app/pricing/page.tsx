@@ -8,7 +8,7 @@ const description =
   "pingdan is free. Every feature included — unlimited monitors, 1-minute intervals, all alert channels, and full history. No credit card required.";
 
 export const metadata: Metadata = {
-  title: "Pricing — pingdan",
+  title: "Free Uptime Monitoring Pricing",
   description,
   alternates: { canonical: "/pricing" },
   openGraph: {

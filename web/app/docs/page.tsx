@@ -6,7 +6,7 @@ import { Footer } from "@/components/Footer";
 import { Breadcrumbs } from "@/components/JsonLd";
 
 export const metadata: Metadata = {
-  title: "Docs — How pingdan works",
+  title: "Monitoring Documentation & Setup Guides",
   description:
     "Learn how to set up monitors, write assertions, choose check intervals, and configure alert integrations across email, chat, webhooks, paging, mobile push, SMS and incident tools.",
   alternates: { canonical: "/docs" },

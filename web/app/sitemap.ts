@@ -7,6 +7,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const routes = [
     { path: "/", priority: 1.0, changeFrequency: "weekly" as const },
     { path: "/features", priority: 0.8, changeFrequency: "monthly" as const },
+    { path: "/uptime-monitoring", priority: 0.9, changeFrequency: "monthly" as const },
+    { path: "/api-monitoring", priority: 0.9, changeFrequency: "monthly" as const },
+    { path: "/ssl-certificate-monitoring", priority: 0.8, changeFrequency: "monthly" as const },
     { path: "/pricing", priority: 0.9, changeFrequency: "monthly" as const },
     { path: "/docs", priority: 0.7, changeFrequency: "monthly" as const },
     { path: "/blog", priority: 0.8, changeFrequency: "weekly" as const },
@@ -17,7 +20,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   const staticEntries: MetadataRoute.Sitemap = routes.map((r) => ({
     url: `${siteUrl}${r.path}`,
-    lastModified: new Date(),
     changeFrequency: r.changeFrequency,
     priority: r.priority,
   }));

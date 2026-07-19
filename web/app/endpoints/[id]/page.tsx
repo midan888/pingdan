@@ -11,8 +11,10 @@ import {
   api,
   getToken,
   daysUntil,
+  monitorTargetSummary,
   sslSeverity,
   SSL_ALERT_THRESHOLD_DAYS,
+  supportsSSLMonitoring,
   type AlertChannel,
   type Assertion,
   type Check,
@@ -32,7 +34,7 @@ function SSLCard({ endpoint, onChecked }: { endpoint: Endpoint; onChecked: (e: E
   const [checking, setChecking] = useState(false);
 
   // Only HTTPS endpoints have a certificate to monitor.
-  if (!endpoint.url.startsWith("https://")) return null;
+  if (!supportsSSLMonitoring(endpoint)) return null;
 
   async function checkNow() {
     setChecking(true);
@@ -151,7 +153,7 @@ export default function EndpointDetailPage() {
   }
 
   async function remove() {
-    if (!confirm("Delete this endpoint and all its history?")) return;
+    if (!confirm("Delete this monitor and all its history?")) return;
     await api(`/endpoints/${id}`, { method: "DELETE" });
     router.push("/endpoints");
   }
@@ -171,7 +173,7 @@ export default function EndpointDetailPage() {
     return (
       <>
         <Nav />
-        <div className="container"><div className="empty">Endpoint not found.</div></div>
+        <div className="container"><div className="empty">Monitor not found.</div></div>
       </>
     );
   }
@@ -181,7 +183,7 @@ export default function EndpointDetailPage() {
       <Nav />
       <div className="container">
         <div style={{ marginBottom: "0.75rem" }}>
-          <Link href="/endpoints" className="muted">← Endpoints</Link>
+          <Link href="/endpoints" className="muted">← Monitors</Link>
         </div>
 
         <div className="page-head">
@@ -191,9 +193,13 @@ export default function EndpointDetailPage() {
               <h1 style={{ margin: 0 }}>{endpoint.name}</h1>
               <span className={`pill ${endpoint.currentState}`}>{endpoint.currentState}</span>
             </div>
-            <a className="subtitle mono" href={endpoint.url} target="_blank" rel="noreferrer">
-              {endpoint.method} {endpoint.url}
-            </a>
+            {endpoint.checkType === "http" ? (
+              <a className="subtitle mono" href={endpoint.url} target="_blank" rel="noreferrer">
+                {monitorTargetSummary(endpoint)}
+              </a>
+            ) : (
+              <div className="subtitle mono">{monitorTargetSummary(endpoint)}</div>
+            )}
           </div>
           <div className="row">
             <button onClick={() => setEditing((e) => !e)}>{editing ? "Close" : "Edit"}</button>
@@ -205,6 +211,7 @@ export default function EndpointDetailPage() {
           <EndpointForm
             initial={{
               name: endpoint.name,
+              checkType: endpoint.checkType,
               url: endpoint.url,
               method: endpoint.method,
               expectedStatus: endpoint.expectedStatus,
@@ -241,7 +248,7 @@ export default function EndpointDetailPage() {
                 </div>
               </div>
               <div className="card stat">
-                <div className="label">Avg response</div>
+                <div className="label">Avg latency</div>
                 <div className="value">{fmtMs(stats?.avgLatencyMs)}</div>
               </div>
               <div className="card stat">
@@ -265,7 +272,7 @@ export default function EndpointDetailPage() {
               </div>
               {channelIds.length === 0 ? (
                 <p className="faint" style={{ margin: "0.5rem 0 0", fontSize: "0.85rem" }}>
-                  No channels attached — this endpoint won&apos;t notify anyone when it goes down.
+                  No channels attached — this monitor won&apos;t notify anyone when it goes down.
                 </p>
               ) : (
                 <div className="chips" style={{ marginTop: "0.6rem" }}>
@@ -282,10 +289,10 @@ export default function EndpointDetailPage() {
               )}
             </div>
 
-            {/* response time chart */}
+            {/* latency chart */}
             <div className="card" style={{ marginBottom: "1rem" }}>
               <div className="spread" style={{ marginBottom: "0.75rem" }}>
-                <h3 style={{ margin: 0 }}>Response time</h3>
+                <h3 style={{ margin: 0 }}>Latency</h3>
                 <span className="faint" style={{ fontSize: "0.78rem" }}>
                   p50 {fmtMs(stats?.p50LatencyMs)} · p95 {fmtMs(stats?.p95LatencyMs)} · min {fmtMs(stats?.minLatencyMs)} · max {fmtMs(stats?.maxLatencyMs)}
                 </span>
@@ -308,7 +315,7 @@ export default function EndpointDetailPage() {
                   <tr>
                     <th>Time</th>
                     <th>Result</th>
-                    <th>Status</th>
+                    <th>HTTP status</th>
                     <th className="num">Latency</th>
                     <th>Detail</th>
                   </tr>

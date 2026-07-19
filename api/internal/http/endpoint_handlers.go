@@ -210,6 +210,7 @@ type assertionInput struct {
 type endpointInput struct {
 	GroupID          *string          `json:"groupId"`
 	Name             string           `json:"name"`
+	CheckType        string           `json:"checkType"`
 	URL              string           `json:"url"`
 	Method           string           `json:"method"`
 	ExpectedStatus   int              `json:"expectedStatus"`
@@ -263,6 +264,10 @@ func (in *endpointInput) normalize() {
 		in.GroupID = nil
 	}
 	in.Name = strings.TrimSpace(in.Name)
+	in.CheckType = strings.ToLower(strings.TrimSpace(in.CheckType))
+	if in.CheckType == "" {
+		in.CheckType = endpoints.CheckTypeHTTP
+	}
 	in.URL = strings.TrimSpace(in.URL)
 	if in.Method == "" {
 		in.Method = "GET"
@@ -284,11 +289,41 @@ func (in *endpointInput) validate() error {
 	if in.Name == "" {
 		return errBadRequest("name required")
 	}
+	if len(in.Assertions) > 0 && in.CheckType != endpoints.CheckTypeHTTP {
+		return errBadRequest("assertions are only supported for HTTP checks")
+	}
+
 	u, err := url.Parse(in.URL)
-	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-		return errBadRequest("url must be http(s)")
+	if err != nil {
+		return errBadRequest("invalid target")
+	}
+	switch in.CheckType {
+	case endpoints.CheckTypeHTTP:
+		if (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			return errBadRequest("HTTP target must use http:// or https://")
+		}
+	case endpoints.CheckTypeTCP:
+		if u.Scheme != "tcp" || u.Hostname() == "" || u.Port() == "" || !plainHostTarget(u) {
+			return errBadRequest("TCP target must look like tcp://host:port")
+		}
+		port, err := strconv.Atoi(u.Port())
+		if err != nil || port < 1 || port > 65535 {
+			return errBadRequest("TCP port must be between 1 and 65535")
+		}
+	case endpoints.CheckTypeICMP:
+		if u.Scheme != "icmp" || u.Hostname() == "" || u.Port() != "" || !plainHostTarget(u) {
+			return errBadRequest("ICMP target must look like icmp://host")
+		}
+	default:
+		return errBadRequest("checkType must be http, tcp, or icmp")
 	}
 	return nil
+}
+
+// plainHostTarget keeps TCP and ICMP targets unambiguous: credentials, paths,
+// queries, and fragments are not meaningful to either probe.
+func plainHostTarget(u *url.URL) bool {
+	return u.User == nil && (u.Path == "" || u.Path == "/") && u.RawQuery == "" && u.Fragment == ""
 }
 
 func (h *EndpointHandlers) create(w http.ResponseWriter, r *http.Request) {
@@ -313,7 +348,7 @@ func (h *EndpointHandlers) create(w http.ResponseWriter, r *http.Request) {
 		enabled = *in.Enabled
 	}
 	e := &endpoints.Endpoint{
-		UserID: u.ID, GroupID: in.GroupID, Name: in.Name, URL: in.URL, Method: in.Method,
+		UserID: u.ID, GroupID: in.GroupID, Name: in.Name, CheckType: in.CheckType, URL: in.URL, Method: in.Method,
 		ExpectedStatus: in.ExpectedStatus, IntervalSec: in.IntervalSec, TimeoutSec: in.TimeoutSec,
 		FailureThreshold: in.FailureThreshold, Enabled: enabled,
 	}
@@ -358,7 +393,7 @@ func (h *EndpointHandlers) update(w http.ResponseWriter, r *http.Request) {
 		enabled = *in.Enabled
 	}
 	e := &endpoints.Endpoint{
-		GroupID: in.GroupID, Name: in.Name, URL: in.URL, Method: in.Method,
+		GroupID: in.GroupID, Name: in.Name, CheckType: in.CheckType, URL: in.URL, Method: in.Method,
 		ExpectedStatus: in.ExpectedStatus, IntervalSec: in.IntervalSec, TimeoutSec: in.TimeoutSec,
 		FailureThreshold: in.FailureThreshold, Enabled: enabled,
 	}

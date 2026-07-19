@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { daysUntil, groupStatusColor, intervalLabel, sslSeverity } from "./api";
+import {
+  daysUntil,
+  groupStatusColor,
+  intervalLabel,
+  monitorTargetSummary,
+  sslSeverity,
+  supportsSSLMonitoring,
+} from "./api";
 
 describe("api utility helpers", () => {
   afterEach(() => {
@@ -38,5 +45,20 @@ describe("api utility helpers", () => {
     expect(intervalLabel(3600)).toBe("1 hr");
     expect(intervalLabel(86400)).toBe("1 day");
     expect(intervalLabel(172800)).toBe("2 days");
+  });
+
+  it("formats protocol-aware monitor targets", () => {
+    expect(monitorTargetSummary({ checkType: "http", method: "GET", url: "https://example.com" }))
+      .toBe("HTTP GET https://example.com");
+    expect(monitorTargetSummary({ checkType: "tcp", method: "GET", url: "tcp://vpn.example.com:443" }))
+      .toBe("TCP tcp://vpn.example.com:443");
+    expect(monitorTargetSummary({ checkType: "icmp", method: "GET", url: "icmp://vpn.example.com" }))
+      .toBe("ICMP icmp://vpn.example.com");
+  });
+
+  it("enables SSL monitoring only for HTTPS HTTP targets", () => {
+    expect(supportsSSLMonitoring({ checkType: "http", url: "https://example.com" })).toBe(true);
+    expect(supportsSSLMonitoring({ checkType: "http", url: "http://example.com" })).toBe(false);
+    expect(supportsSSLMonitoring({ checkType: "tcp", url: "tcp://example.com:443" })).toBe(false);
   });
 });

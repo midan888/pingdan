@@ -7,7 +7,7 @@ import { api, clearToken, getToken, type Me } from "@/lib/api";
 
 const baseLinks = [
   { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
-  { href: "/endpoints", label: "Endpoints", icon: "endpoints" },
+  { href: "/endpoints", label: "Monitors", icon: "endpoints" },
   { href: "/groups", label: "Groups", icon: "groups" },
   { href: "/channels", label: "Alerts", icon: "alerts" },
   { href: "/status-pages", label: "Status", icon: "status" },

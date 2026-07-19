@@ -8,36 +8,43 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+const (
+	CheckTypeHTTP = "http"
+	CheckTypeTCP  = "tcp"
+	CheckTypeICMP = "icmp"
+)
+
 type Endpoint struct {
-	ID                   string     `json:"id"`
-	UserID               string     `json:"-"`
-	GroupID              *string    `json:"groupId"`
-	Name                 string     `json:"name"`
-	URL                  string     `json:"url"`
-	Method               string     `json:"method"`
-	ExpectedStatus       int        `json:"expectedStatus"`
-	IntervalSec          int        `json:"intervalSec"`
-	TimeoutSec           int        `json:"timeoutSec"`
-	FailureThreshold     int        `json:"failureThreshold"`
-	Enabled              bool       `json:"enabled"`
-	CurrentState         string     `json:"currentState"`
-	ConsecutiveFailures  int        `json:"consecutiveFailures"`
-	LastCheckedAt        *time.Time `json:"lastCheckedAt"`
-	CreatedAt            time.Time  `json:"createdAt"`
+	ID                  string     `json:"id"`
+	UserID              string     `json:"-"`
+	GroupID             *string    `json:"groupId"`
+	Name                string     `json:"name"`
+	CheckType           string     `json:"checkType"`
+	URL                 string     `json:"url"`
+	Method              string     `json:"method"`
+	ExpectedStatus      int        `json:"expectedStatus"`
+	IntervalSec         int        `json:"intervalSec"`
+	TimeoutSec          int        `json:"timeoutSec"`
+	FailureThreshold    int        `json:"failureThreshold"`
+	Enabled             bool       `json:"enabled"`
+	CurrentState        string     `json:"currentState"`
+	ConsecutiveFailures int        `json:"consecutiveFailures"`
+	LastCheckedAt       *time.Time `json:"lastCheckedAt"`
+	CreatedAt           time.Time  `json:"createdAt"`
 
 	// SSL/TLS certificate monitoring (populated by the daily ssl checker;
 	// NULL for non-HTTPS endpoints or before the first check).
-	SSLExpiresAt      *time.Time `json:"sslExpiresAt"`
-	SSLLastCheckedAt  *time.Time `json:"sslLastCheckedAt"`
-	SSLLastError      *string    `json:"sslLastError"`
-	SSLAlertedDays    *int       `json:"-"`
+	SSLExpiresAt     *time.Time `json:"sslExpiresAt"`
+	SSLLastCheckedAt *time.Time `json:"sslLastCheckedAt"`
+	SSLLastError     *string    `json:"sslLastError"`
+	SSLAlertedDays   *int       `json:"-"`
 }
 
 type Store struct{ Pool *pgxpool.Pool }
 
 func (s *Store) List(ctx context.Context, userID string) ([]Endpoint, error) {
 	rows, err := s.Pool.Query(ctx, `
-		SELECT id, user_id, group_id, name, url, method, expected_status, interval_sec, timeout_sec,
+		SELECT id, user_id, group_id, name, check_type, url, method, expected_status, interval_sec, timeout_sec,
 		       failure_threshold, enabled, current_state, consecutive_failures, last_checked_at, created_at,
 		       ssl_expires_at, ssl_last_checked_at, ssl_last_error
 		FROM endpoints WHERE user_id = $1 ORDER BY created_at DESC
@@ -49,7 +56,7 @@ func (s *Store) List(ctx context.Context, userID string) ([]Endpoint, error) {
 	out := []Endpoint{}
 	for rows.Next() {
 		var e Endpoint
-		if err := rows.Scan(&e.ID, &e.UserID, &e.GroupID, &e.Name, &e.URL, &e.Method, &e.ExpectedStatus,
+		if err := rows.Scan(&e.ID, &e.UserID, &e.GroupID, &e.Name, &e.CheckType, &e.URL, &e.Method, &e.ExpectedStatus,
 			&e.IntervalSec, &e.TimeoutSec, &e.FailureThreshold, &e.Enabled, &e.CurrentState,
 			&e.ConsecutiveFailures, &e.LastCheckedAt, &e.CreatedAt,
 			&e.SSLExpiresAt, &e.SSLLastCheckedAt, &e.SSLLastError); err != nil {
@@ -64,10 +71,10 @@ func (s *Store) Create(ctx context.Context, e *Endpoint) error {
 	// group_id is resolved through an ownership-guarded subselect so a group
 	// belonging to another user (or an unknown id) lands as NULL.
 	return s.Pool.QueryRow(ctx, `
-		INSERT INTO endpoints (user_id, group_id, name, url, method, expected_status, interval_sec, timeout_sec, failure_threshold, enabled)
-		VALUES ($1, (SELECT id FROM groups WHERE id=$2 AND user_id=$1), $3, $4, $5, $6, $7, $8, $9, $10)
+		INSERT INTO endpoints (user_id, group_id, name, check_type, url, method, expected_status, interval_sec, timeout_sec, failure_threshold, enabled)
+		VALUES ($1, (SELECT id FROM groups WHERE id=$2 AND user_id=$1), $3, $4, $5, $6, $7, $8, $9, $10, $11)
 		RETURNING id, current_state, consecutive_failures, created_at
-	`, e.UserID, e.GroupID, e.Name, e.URL, e.Method, e.ExpectedStatus, e.IntervalSec, e.TimeoutSec, e.FailureThreshold, e.Enabled).
+	`, e.UserID, e.GroupID, e.Name, e.CheckType, e.URL, e.Method, e.ExpectedStatus, e.IntervalSec, e.TimeoutSec, e.FailureThreshold, e.Enabled).
 		Scan(&e.ID, &e.CurrentState, &e.ConsecutiveFailures, &e.CreatedAt)
 }
 
@@ -75,12 +82,12 @@ func (s *Store) Update(ctx context.Context, userID, id string, e *Endpoint) erro
 	// group_id is set via an ownership-guarded subselect: a group from another
 	// user (or an unknown id) resolves to NULL rather than being trusted.
 	_, err := s.Pool.Exec(ctx, `
-		UPDATE endpoints SET name=$1, url=$2, method=$3, expected_status=$4, interval_sec=$5,
-		    timeout_sec=$6, failure_threshold=$7, enabled=$8,
-		    group_id=(SELECT id FROM groups WHERE id=$9 AND user_id=$10),
+		UPDATE endpoints SET name=$1, check_type=$2, url=$3, method=$4, expected_status=$5, interval_sec=$6,
+		    timeout_sec=$7, failure_threshold=$8, enabled=$9,
+		    group_id=(SELECT id FROM groups WHERE id=$10 AND user_id=$11),
 		    updated_at=now()
-		WHERE id=$11 AND user_id=$10
-	`, e.Name, e.URL, e.Method, e.ExpectedStatus, e.IntervalSec, e.TimeoutSec, e.FailureThreshold, e.Enabled, e.GroupID, userID, id)
+		WHERE id=$12 AND user_id=$11
+	`, e.Name, e.CheckType, e.URL, e.Method, e.ExpectedStatus, e.IntervalSec, e.TimeoutSec, e.FailureThreshold, e.Enabled, e.GroupID, userID, id)
 	return err
 }
 
@@ -92,7 +99,7 @@ func (s *Store) Delete(ctx context.Context, userID, id string) error {
 // ListEnabledAll returns every enabled endpoint across all users — used by the pinger scheduler at startup.
 func (s *Store) ListEnabledAll(ctx context.Context) ([]Endpoint, error) {
 	rows, err := s.Pool.Query(ctx, `
-		SELECT id, user_id, group_id, name, url, method, expected_status, interval_sec, timeout_sec,
+		SELECT id, user_id, group_id, name, check_type, url, method, expected_status, interval_sec, timeout_sec,
 		       failure_threshold, enabled, current_state, consecutive_failures, last_checked_at, created_at,
 		       ssl_expires_at, ssl_last_checked_at, ssl_last_error, ssl_alerted_days
 		FROM endpoints WHERE enabled = TRUE
@@ -104,7 +111,7 @@ func (s *Store) ListEnabledAll(ctx context.Context) ([]Endpoint, error) {
 	out := []Endpoint{}
 	for rows.Next() {
 		var e Endpoint
-		if err := rows.Scan(&e.ID, &e.UserID, &e.GroupID, &e.Name, &e.URL, &e.Method, &e.ExpectedStatus,
+		if err := rows.Scan(&e.ID, &e.UserID, &e.GroupID, &e.Name, &e.CheckType, &e.URL, &e.Method, &e.ExpectedStatus,
 			&e.IntervalSec, &e.TimeoutSec, &e.FailureThreshold, &e.Enabled, &e.CurrentState,
 			&e.ConsecutiveFailures, &e.LastCheckedAt, &e.CreatedAt,
 			&e.SSLExpiresAt, &e.SSLLastCheckedAt, &e.SSLLastError, &e.SSLAlertedDays); err != nil {
@@ -118,11 +125,11 @@ func (s *Store) ListEnabledAll(ctx context.Context) ([]Endpoint, error) {
 func (s *Store) GetByID(ctx context.Context, id string) (*Endpoint, error) {
 	var e Endpoint
 	err := s.Pool.QueryRow(ctx, `
-		SELECT id, user_id, group_id, name, url, method, expected_status, interval_sec, timeout_sec,
+		SELECT id, user_id, group_id, name, check_type, url, method, expected_status, interval_sec, timeout_sec,
 		       failure_threshold, enabled, current_state, consecutive_failures, last_checked_at, created_at,
 		       ssl_expires_at, ssl_last_checked_at, ssl_last_error, ssl_alerted_days
 		FROM endpoints WHERE id=$1
-	`, id).Scan(&e.ID, &e.UserID, &e.GroupID, &e.Name, &e.URL, &e.Method, &e.ExpectedStatus,
+	`, id).Scan(&e.ID, &e.UserID, &e.GroupID, &e.Name, &e.CheckType, &e.URL, &e.Method, &e.ExpectedStatus,
 		&e.IntervalSec, &e.TimeoutSec, &e.FailureThreshold, &e.Enabled, &e.CurrentState,
 		&e.ConsecutiveFailures, &e.LastCheckedAt, &e.CreatedAt,
 		&e.SSLExpiresAt, &e.SSLLastCheckedAt, &e.SSLLastError, &e.SSLAlertedDays)

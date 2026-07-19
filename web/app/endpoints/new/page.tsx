@@ -24,15 +24,15 @@ export default function NewEndpointPage() {
       <Nav />
       <div className="container">
         <div style={{ marginBottom: "0.75rem" }}>
-          <Link href="/endpoints" className="muted">← Endpoints</Link>
+          <Link href="/endpoints" className="muted">← Monitors</Link>
         </div>
         <div className="page-head">
           <div>
-            <h1>New endpoint</h1>
-            <div className="subtitle">Configure the request and what makes a check pass.</div>
+            <h1>New monitor</h1>
+            <div className="subtitle">Monitor an HTTP endpoint, TCP port, or host with ICMP ping.</div>
           </div>
         </div>
-        <EndpointForm initial={emptyEndpoint()} submitLabel="Create endpoint" onSubmit={create} onCancel={() => router.push("/endpoints")} />
+        <EndpointForm initial={emptyEndpoint()} submitLabel="Create monitor" onSubmit={create} onCancel={() => router.push("/endpoints")} />
       </div>
     </>
   );

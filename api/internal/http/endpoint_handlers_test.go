@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/pingdan/api/internal/assertions"
+	"github.com/pingdan/api/internal/endpoints"
 )
 
 func strptr(s string) *string { return &s }
@@ -71,6 +72,9 @@ func TestEndpointInputNormalizeDefaults(t *testing.T) {
 	if in.Name != "API" {
 		t.Errorf("Name = %q, want trimmed API", in.Name)
 	}
+	if in.CheckType != endpoints.CheckTypeHTTP {
+		t.Errorf("CheckType = %q, want HTTP default", in.CheckType)
+	}
 	if in.URL != "https://example.com" {
 		t.Errorf("URL = %q, want trimmed URL", in.URL)
 	}
@@ -98,10 +102,20 @@ func TestEndpointInputValidate(t *testing.T) {
 		wantErr string
 	}{
 		{"missing name", endpointInput{URL: "https://example.com"}, "name required"},
-		{"bad scheme", endpointInput{Name: "API", URL: "ftp://example.com"}, "url must be http(s)"},
-		{"missing host", endpointInput{Name: "API", URL: "https://"}, "url must be http(s)"},
-		{"valid http", endpointInput{Name: "API", URL: "http://example.com"}, ""},
-		{"valid https", endpointInput{Name: "API", URL: "https://example.com"}, ""},
+		{"unknown check type", endpointInput{Name: "API", CheckType: "udp", URL: "udp://example.com:53"}, "checkType must be http, tcp, or icmp"},
+		{"HTTP bad scheme", endpointInput{Name: "API", CheckType: endpoints.CheckTypeHTTP, URL: "ftp://example.com"}, "HTTP target must use http:// or https://"},
+		{"HTTP missing host", endpointInput{Name: "API", CheckType: endpoints.CheckTypeHTTP, URL: "https://"}, "HTTP target must use http:// or https://"},
+		{"valid HTTP", endpointInput{Name: "API", CheckType: endpoints.CheckTypeHTTP, URL: "http://example.com"}, ""},
+		{"valid HTTPS", endpointInput{Name: "API", CheckType: endpoints.CheckTypeHTTP, URL: "https://example.com"}, ""},
+		{"TCP missing port", endpointInput{Name: "VPN", CheckType: endpoints.CheckTypeTCP, URL: "tcp://vpn.example.com"}, "TCP target must look like tcp://host:port"},
+		{"TCP port too high", endpointInput{Name: "VPN", CheckType: endpoints.CheckTypeTCP, URL: "tcp://vpn.example.com:65536"}, "TCP port must be between 1 and 65535"},
+		{"TCP path rejected", endpointInput{Name: "VPN", CheckType: endpoints.CheckTypeTCP, URL: "tcp://vpn.example.com:443/path"}, "TCP target must look like tcp://host:port"},
+		{"valid TCP", endpointInput{Name: "VPN", CheckType: endpoints.CheckTypeTCP, URL: "tcp://vpn.example.com:443"}, ""},
+		{"valid TCP IPv6", endpointInput{Name: "VPN", CheckType: endpoints.CheckTypeTCP, URL: "tcp://[2001:db8::1]:443"}, ""},
+		{"ICMP port rejected", endpointInput{Name: "VPN", CheckType: endpoints.CheckTypeICMP, URL: "icmp://vpn.example.com:7"}, "ICMP target must look like icmp://host"},
+		{"ICMP path rejected", endpointInput{Name: "VPN", CheckType: endpoints.CheckTypeICMP, URL: "icmp://vpn.example.com/path"}, "ICMP target must look like icmp://host"},
+		{"valid ICMP", endpointInput{Name: "VPN", CheckType: endpoints.CheckTypeICMP, URL: "icmp://vpn.example.com"}, ""},
+		{"non-HTTP assertions rejected", endpointInput{Name: "VPN", CheckType: endpoints.CheckTypeTCP, URL: "tcp://vpn.example.com:443", Assertions: []assertionInput{{Source: assertions.SourceResponseTime}}}, "assertions are only supported for HTTP checks"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

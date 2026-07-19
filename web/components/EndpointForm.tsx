@@ -2,12 +2,13 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
-import { api, intervalLabel, type AlertChannel, type Assertion, type Group } from "@/lib/api";
+import { api, intervalLabel, type AlertChannel, type Assertion, type CheckType, type Group } from "@/lib/api";
 import { channelIcon, channelTarget } from "@/lib/channels";
 import { AssertionBuilder } from "./AssertionBuilder";
 
 export type EndpointFormValues = {
   name: string;
+  checkType: CheckType;
   url: string;
   method: string;
   expectedStatus: number;
@@ -50,6 +51,7 @@ function intervalParts(sec: number): { count: number; unit: IntervalUnit } {
 export function emptyEndpoint(): EndpointFormValues {
   return {
     name: "",
+    checkType: "http",
     url: "",
     method: "GET",
     expectedStatus: 200,
@@ -64,6 +66,29 @@ export function emptyEndpoint(): EndpointFormValues {
 
 const METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"];
 const STATUS_PRESETS = [200, 201, 204, 301, 302, 401, 403];
+const CHECK_TYPES: { value: CheckType; label: string; description: string }[] = [
+  { value: "http", label: "HTTP", description: "Request a web or API URL" },
+  { value: "tcp", label: "TCP port", description: "Open a TCP connection" },
+  { value: "icmp", label: "Ping", description: "Send an ICMP echo request" },
+];
+
+const TARGET_COPY: Record<CheckType, { label: string; placeholder: string; hint: string }> = {
+  http: {
+    label: "HTTP URL",
+    placeholder: "https://api.example.com/healthz",
+    hint: "The HTTP request we'll send on every check.",
+  },
+  tcp: {
+    label: "TCP target",
+    placeholder: "tcp://vpn.example.com:443",
+    hint: "The check passes when a TCP connection can be established. This does not perform a VPN handshake.",
+  },
+  icmp: {
+    label: "Ping target",
+    placeholder: "icmp://vpn.example.com",
+    hint: "The check passes when the host returns an ICMP echo reply. Some firewalls intentionally block ping.",
+  },
+};
 
 function Section({
   num,
@@ -151,7 +176,7 @@ export function EndpointForm({
     setSaving(true);
     setError(null);
     try {
-      await onSubmit(v);
+      await onSubmit({ ...v, assertions: v.checkType === "http" ? v.assertions : [] });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to save");
     } finally {
@@ -159,8 +184,23 @@ export function EndpointForm({
     }
   }
 
+  function changeCheckType(checkType: CheckType) {
+    setV((prev) => {
+      if (prev.checkType === checkType) return prev;
+      return {
+        ...prev,
+        checkType,
+        url: "",
+        method: "GET",
+        expectedStatus: 200,
+        assertions: [],
+      };
+    });
+  }
+
   const { count: intervalCount, unit: intervalUnit } = intervalParts(v.intervalSec);
   const activeUnit = INTERVAL_UNITS.find((u) => u.key === intervalUnit)!;
+  const targetCopy = TARGET_COPY[v.checkType];
 
   function updateInterval(count: number, unit: IntervalUnit) {
     const u = INTERVAL_UNITS.find((x) => x.key === unit)!;
@@ -170,23 +210,43 @@ export function EndpointForm({
 
   return (
     <form onSubmit={submit}>
-      {/* 1 — Request */}
-      <Section num={1} title="Request" desc="What to call">
+      {/* 1 — Target */}
+      <Section num={1} title="Target" desc="What to check">
         <div className="field">
-          <label>Endpoint URL</label>
+          <label>Check type</label>
+          <div className="chips">
+            {CHECK_TYPES.map((type) => (
+              <button
+                type="button"
+                key={type.value}
+                className={`chip ${v.checkType === type.value ? "selected" : ""}`}
+                onClick={() => changeCheckType(type.value)}
+                title={type.description}
+              >
+                {type.label}
+              </button>
+            ))}
+          </div>
+          <div className="hint">{CHECK_TYPES.find((type) => type.value === v.checkType)?.description}.</div>
+        </div>
+
+        <div className="field">
+          <label>{targetCopy.label}</label>
           <div className="url-bar">
-            <select value={v.method} onChange={(e) => set("method", e.target.value)} aria-label="HTTP method">
-              {METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
-            </select>
+            {v.checkType === "http" && (
+              <select value={v.method} onChange={(e) => set("method", e.target.value)} aria-label="HTTP method">
+                {METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
+              </select>
+            )}
             <input
-              placeholder="https://api.example.com/healthz"
+              placeholder={targetCopy.placeholder}
               value={v.url}
               onChange={(e) => set("url", e.target.value)}
               required
               autoFocus
             />
           </div>
-          <div className="hint">The HTTP request we&apos;ll send on every check.</div>
+          <div className="hint">{targetCopy.hint}</div>
         </div>
 
         <div className="field">
@@ -208,7 +268,7 @@ export function EndpointForm({
             ))}
           </select>
           <div className="hint">
-            Organize related endpoints together. <Link href="/groups">Manage groups</Link>.
+            Organize related monitors together. <Link href="/groups">Manage groups</Link>.
           </div>
         </div>
       </Section>
@@ -254,7 +314,7 @@ export function EndpointForm({
 
         <div className="row wrap" style={{ gap: "2rem", marginBottom: 0 }}>
           <div>
-            <label>Request timeout</label>
+            <label>Check timeout</label>
             <Stepper value={v.timeoutSec} onChange={(n) => set("timeoutSec", n)} min={1} max={60} unit="s" />
             <div className="hint">Fail the check if no response within this time.</div>
           </div>
@@ -267,37 +327,47 @@ export function EndpointForm({
       </Section>
 
       {/* 3 — Validation */}
-      <Section num={3} title="Validation" desc="What makes a check pass">
-        <div className="field">
-          <label>Expected status code</label>
-          <div className="row wrap">
-            <div className="chips">
-              {STATUS_PRESETS.map((s) => (
-                <button
-                  type="button"
-                  key={s}
-                  className={`chip ${v.expectedStatus === s ? "selected" : ""}`}
-                  onClick={() => set("expectedStatus", s)}
-                >
-                  {s}
-                </button>
-              ))}
+      {v.checkType === "http" ? (
+        <Section num={3} title="Validation" desc="What makes a check pass">
+          <div className="field">
+            <label>Expected status code</label>
+            <div className="row wrap">
+              <div className="chips">
+                {STATUS_PRESETS.map((s) => (
+                  <button
+                    type="button"
+                    key={s}
+                    className={`chip ${v.expectedStatus === s ? "selected" : ""}`}
+                    onClick={() => set("expectedStatus", s)}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+              <input
+                type="number"
+                style={{ width: 110 }}
+                value={v.expectedStatus}
+                onChange={(e) => set("expectedStatus", Number(e.target.value))}
+                aria-label="custom status"
+              />
             </div>
-            <input
-              type="number"
-              style={{ width: 110 }}
-              value={v.expectedStatus}
-              onChange={(e) => set("expectedStatus", Number(e.target.value))}
-              aria-label="custom status"
-            />
+            <div className="hint">Any other status fails the check unless an assertion overrides it.</div>
           </div>
-          <div className="hint">Any other status fails the check unless an assertion overrides it.</div>
-        </div>
 
-        <hr style={{ border: "none", borderTop: "1px solid var(--border)", margin: "0.25rem 0 1rem" }} />
+          <hr style={{ border: "none", borderTop: "1px solid var(--border)", margin: "0.25rem 0 1rem" }} />
 
-        <AssertionBuilder value={v.assertions} onChange={(a) => set("assertions", a)} />
-      </Section>
+          <AssertionBuilder value={v.assertions} onChange={(a) => set("assertions", a)} />
+        </Section>
+      ) : (
+        <Section num={3} title="Success condition" desc="What makes a check pass">
+          <p style={{ margin: 0 }}>
+            {v.checkType === "tcp"
+              ? "The target is up when Pingdan establishes a TCP connection before the timeout. The connection is then closed without sending application data."
+              : "The target is up when Pingdan receives a matching ICMP echo reply before the timeout."}
+          </p>
+        </Section>
+      )}
 
       {/* 4 — Alerts */}
       <Section
@@ -309,7 +379,7 @@ export function EndpointForm({
           <label>Notify these channels</label>
           {channels.length === 0 ? (
             <p className="faint" style={{ fontSize: "0.85rem", margin: "0.25rem 0 0" }}>
-              No alert channels yet. <Link href="/channels">Create one</Link> to get notified when this endpoint goes down.
+              No alert channels yet. <Link href="/channels">Create one</Link> to get notified when this monitor goes down.
             </p>
           ) : (
             <>
@@ -333,7 +403,7 @@ export function EndpointForm({
                 })}
               </div>
               <div className="hint">
-                Alerts fire when this endpoint goes down (and recovers). <Link href="/channels">Manage channels</Link>.
+                Alerts fire when this monitor goes down (and recovers). <Link href="/channels">Manage channels</Link>.
               </div>
             </>
           )}

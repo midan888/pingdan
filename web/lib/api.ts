@@ -159,6 +159,7 @@ export type PublicStatusPage = {
 };
 
 export type EndpointState = "up" | "down" | "unknown";
+export type CheckType = "http" | "tcp" | "icmp";
 
 /**
  * Accent color for a group section, driven by the worst state among its
@@ -176,6 +177,7 @@ export type Endpoint = {
   id: string;
   groupId: string | null;
   name: string;
+  checkType: CheckType;
   url: string;
   method: string;
   expectedStatus: number;
@@ -191,6 +193,17 @@ export type Endpoint = {
   sslLastCheckedAt: string | null;
   sslLastError: string | null;
 };
+
+/** Protocol-aware target text used consistently in monitor lists/details. */
+export function monitorTargetSummary(endpoint: Pick<Endpoint, "checkType" | "method" | "url">): string {
+  const method = endpoint.checkType === "http" ? ` ${endpoint.method}` : "";
+  return `${endpoint.checkType.toUpperCase()}${method} ${endpoint.url}`;
+}
+
+/** Only HTTPS HTTP monitors have a certificate for the SSL checker to inspect. */
+export function supportsSSLMonitoring(endpoint: Pick<Endpoint, "checkType" | "url">): boolean {
+  return endpoint.checkType === "http" && endpoint.url.startsWith("https://");
+}
 
 /** Daily warnings begin at or below this many days to expiry. */
 export const SSL_ALERT_THRESHOLD_DAYS = 15;

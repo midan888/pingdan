@@ -3,11 +3,9 @@ package pinger
 import (
 	"context"
 	"encoding/json"
-	"io"
+	"errors"
 	"log/slog"
-	"net/http"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -17,15 +15,13 @@ import (
 	"github.com/pingdan/api/internal/endpoints"
 )
 
-// maxBodyRead caps how much of a response body we read for assertion evaluation.
-const maxBodyRead = 1 << 20 // 1 MiB
-
 type Scheduler struct {
 	Endpoints  *endpoints.Store
 	Checks     *checks.Store
 	Assertions *assertions.Store
 	Alerts     *alerts.Dispatcher
 	Logger     *slog.Logger
+	Probes     map[string]Probe
 
 	mu      sync.Mutex
 	workers map[string]*worker // endpointID -> worker
@@ -35,6 +31,7 @@ type Scheduler struct {
 func NewScheduler(parent context.Context, e *endpoints.Store, c *checks.Store, as *assertions.Store, a *alerts.Dispatcher, l *slog.Logger) *Scheduler {
 	return &Scheduler{
 		Endpoints: e, Checks: c, Assertions: as, Alerts: a, Logger: l,
+		Probes:  defaultProbes(),
 		workers: map[string]*worker{},
 		parent:  parent,
 	}
@@ -125,59 +122,54 @@ func (w *worker) run(ctx context.Context) {
 	}
 }
 
-var client = &http.Client{
-	// Per-request timeout is enforced via context; this guards against absurdly slow connection setup.
-	Transport: &http.Transport{
-		MaxIdleConns:        100,
-		MaxIdleConnsPerHost: 4,
-		IdleConnTimeout:     90 * time.Second,
-	},
-}
-
 func (w *worker) tick(ctx context.Context) {
 	rctx, cancel := context.WithTimeout(ctx, time.Duration(w.ep.TimeoutSec)*time.Second)
 	defer cancel()
 
-	// Load assertions fresh so edits take effect without restarting the worker.
+	checkType := w.ep.CheckType
+	if checkType == "" {
+		checkType = endpoints.CheckTypeHTTP
+	}
+	probe, ok := w.s.Probes[checkType]
+	if !ok {
+		w.record(ctx, nil, nil, false, "unsupported check type", nil)
+		return
+	}
+
+	result, err := probe.Run(rctx, w.ep)
+	if err != nil {
+		msg := err.Error()
+		if errors.Is(rctx.Err(), context.DeadlineExceeded) || errors.Is(err, context.DeadlineExceeded) {
+			msg = checkType + " check timed out"
+		}
+		w.record(ctx, result.StatusCode, result.LatencyMs, false, msg, nil)
+		return
+	}
+	if checkType != endpoints.CheckTypeHTTP {
+		w.record(ctx, nil, result.LatencyMs, true, "", nil)
+		return
+	}
+
+	// Load HTTP assertions fresh so edits take effect without restarting the worker.
 	asserts, err := w.s.Assertions.ListForEndpoint(ctx, w.ep.ID)
 	if err != nil {
 		w.s.Logger.Error("load assertions failed", "err", err, "endpoint", w.ep.ID)
 	}
 
-	req, err := http.NewRequestWithContext(rctx, w.ep.Method, w.ep.URL, nil)
-	if err != nil {
-		w.record(ctx, nil, nil, false, err.Error(), nil)
-		return
-	}
-	req.Header.Set("User-Agent", "pingdan/1.0")
-
-	start := time.Now()
-	resp, err := client.Do(req)
-	latency := int(time.Since(start).Milliseconds())
-
-	if err != nil {
-		msg := err.Error()
-		w.record(ctx, nil, &latency, false, msg, nil)
-		return
-	}
-	defer resp.Body.Close()
-
-	body, _ := io.ReadAll(io.LimitReader(resp.Body, maxBodyRead))
-
 	// Always evaluate the expected status code, plus any user-defined assertions.
 	ar := assertions.Response{
-		StatusCode: resp.StatusCode,
-		LatencyMs:  latency,
-		Headers:    flattenHeaders(resp.Header),
-		Body:       body,
+		StatusCode: *result.StatusCode,
+		LatencyMs:  *result.LatencyMs,
+		Headers:    result.Headers,
+		Body:       result.Body,
 	}
 
-	statusOK := resp.StatusCode == w.ep.ExpectedStatus
+	statusOK := ar.StatusCode == w.ep.ExpectedStatus
 	var failed []assertions.Result
 	if !statusOK {
 		failed = append(failed, assertions.Result{
 			Source: assertions.SourceStatusCode, Comparison: assertions.CmpEquals,
-			Target: strconv.Itoa(w.ep.ExpectedStatus), Actual: strconv.Itoa(resp.StatusCode), Passed: false,
+			Target: strconv.Itoa(w.ep.ExpectedStatus), Actual: strconv.Itoa(ar.StatusCode), Passed: false,
 		})
 	}
 	for _, a := range asserts {
@@ -186,26 +178,16 @@ func (w *worker) tick(ctx context.Context) {
 		}
 	}
 
-	ok := len(failed) == 0
+	passed := len(failed) == 0
 	var errMsg string
-	if !ok {
+	if !passed {
 		if !statusOK {
 			errMsg = "unexpected status"
 		} else {
 			errMsg = "assertion failed"
 		}
 	}
-	w.record(ctx, &resp.StatusCode, &latency, ok, errMsg, failed)
-}
-
-func flattenHeaders(h http.Header) map[string]string {
-	out := make(map[string]string, len(h))
-	for k, v := range h {
-		if len(v) > 0 {
-			out[strings.ToLower(k)] = v[0]
-		}
-	}
-	return out
+	w.record(ctx, result.StatusCode, result.LatencyMs, passed, errMsg, failed)
 }
 
 func (w *worker) record(ctx context.Context, status, latency *int, ok bool, errMsg string, failed []assertions.Result) {

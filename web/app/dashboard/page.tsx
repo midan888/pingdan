@@ -125,7 +125,7 @@ export default function DashboardPage() {
         <div className="page-head">
           <div>
             <h1>Dashboard</h1>
-            <div className="subtitle">Live status of all monitored endpoints</div>
+            <div className="subtitle">Live status of all monitors</div>
           </div>
           <div className="row" style={{ gap: "0.6rem" }}>
             {groups.length > 0 && (
@@ -141,7 +141,7 @@ export default function DashboardPage() {
                 {hasUngrouped && <option value={UNGROUPED}>Ungrouped</option>}
               </select>
             )}
-            <Link href="/endpoints/new" className="button-link primary">+ New endpoint</Link>
+            <Link href="/endpoints/new" className="button-link primary">+ New monitor</Link>
           </div>
         </div>
 
@@ -173,8 +173,8 @@ export default function DashboardPage() {
           <p className="muted">Loading…</p>
         ) : rows.length === 0 ? (
           <div className="empty">
-            <p>No endpoints to monitor yet.</p>
-            <Link href="/endpoints/new" className="button-link primary">Create your first endpoint</Link>
+            <p>No monitors yet.</p>
+            <Link href="/endpoints/new" className="button-link primary">Create your first monitor</Link>
           </div>
         ) : (
           sections.map((section) => {

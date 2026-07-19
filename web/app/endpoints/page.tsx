@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Nav } from "@/components/Nav";
-import { api, getToken, intervalLabel, daysUntil, sslSeverity, groupStatusColor, type Endpoint, type Group } from "@/lib/api";
+import { api, getToken, intervalLabel, daysUntil, sslSeverity, groupStatusColor, monitorTargetSummary, supportsSSLMonitoring, type Endpoint, type Group } from "@/lib/api";
 
 const SSL_COLOR: Record<string, string | undefined> = {
   ok: "var(--up)",
@@ -15,7 +15,7 @@ const SSL_COLOR: Record<string, string | undefined> = {
 
 /** Compact SSL countdown cell for the endpoints table. */
 function SSLCell({ e }: { e: Endpoint }) {
-  if (!e.url.startsWith("https://")) return <span className="faint">—</span>;
+  if (!supportsSSLMonitoring(e)) return <span className="faint">—</span>;
   if (!e.sslExpiresAt) return <span className="faint">{e.sslLastError ? "error" : "—"}</span>;
   const d = daysUntil(e.sslExpiresAt);
   const color = SSL_COLOR[sslSeverity(d)];
@@ -65,18 +65,18 @@ export default function EndpointsPage() {
       <div className="container">
         <div className="page-head">
           <div>
-            <h1>Endpoints</h1>
-            <div className="subtitle">{items.length} monitored endpoint{items.length === 1 ? "" : "s"}</div>
+            <h1>Monitors</h1>
+            <div className="subtitle">{items.length} monitor{items.length === 1 ? "" : "s"}</div>
           </div>
-          <Link href="/endpoints/new" className="button-link primary">+ New endpoint</Link>
+          <Link href="/endpoints/new" className="button-link primary">+ New monitor</Link>
         </div>
 
         {loading ? (
           <p className="muted">Loading…</p>
         ) : items.length === 0 ? (
           <div className="empty">
-            <p>No endpoints yet.</p>
-            <Link href="/endpoints/new" className="button-link primary">Create your first endpoint</Link>
+            <p>No monitors yet.</p>
+            <Link href="/endpoints/new" className="button-link primary">Create your first monitor</Link>
           </div>
         ) : (
           <div className="card table-scroll" style={{ padding: 0 }}>
@@ -84,7 +84,7 @@ export default function EndpointsPage() {
               <thead>
                 <tr>
                   <th>Name</th>
-                  <th>URL</th>
+                  <th>Target</th>
                   <th>State</th>
                   <th>SSL</th>
                   <th>Interval</th>
@@ -117,7 +117,9 @@ export default function EndpointsPage() {
                             <strong>{e.name}</strong>
                           </div>
                         </td>
-                        <td className="mono muted">{e.method} {e.url}</td>
+                        <td className="mono muted">
+                          {monitorTargetSummary(e)}
+                        </td>
                         <td><span className={`pill ${e.currentState}`}>{e.currentState}</span></td>
                         <td className="num mono"><SSLCell e={e} /></td>
                         <td className="num">{intervalLabel(e.intervalSec)}</td>

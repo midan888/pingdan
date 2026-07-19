@@ -268,7 +268,7 @@ func renderMessage(e endpoints.Endpoint, newState string, c *checks.Check) (stri
 		}
 		checkedAt = c.CheckedAt.Format(time.RFC3339)
 	}
-	body := fmt.Sprintf("Endpoint: %s\nURL: %s\nState: %s\n%s\nAt: %s",
+	body := fmt.Sprintf("Monitor: %s\nTarget: %s\nState: %s\n%s\nAt: %s",
 		e.Name, e.URL, status, detail, checkedAt)
 	return subject, body
 }

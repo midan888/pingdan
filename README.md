@@ -1,10 +1,10 @@
 # pingdan
 
-HTTP endpoint monitoring. Go API + in-process pinger, Next.js dashboard, Postgres.
+HTTP endpoint, TCP port, and ICMP ping monitoring. Go API + in-process probes, Next.js dashboard, Postgres.
 
 ## Architecture
 
-- `api/` — Go service. Serves the REST API *and* runs the pinger as goroutines in the same process. Issues JWTs after Google/GitHub OAuth.
+- `api/` — Go service. Serves the REST API *and* runs HTTP, TCP, and ICMP probes as goroutines in the same process. Issues JWTs after Google/GitHub OAuth.
 - `web/` — Next.js (App Router, TypeScript) dashboard. Talks to the Go API with a `Bearer` JWT stored in `localStorage`.
 - `docker-compose.yml` — Postgres for local dev.
 
@@ -64,12 +64,28 @@ When configuring your OAuth apps, set the callback URLs to:
 | POST   | `/endpoints/{id}/channels/{channelId}`          | JWT  | Attach channel                       |
 | DELETE | `/endpoints/{id}/channels/{channelId}`          | JWT  | Detach channel                       |
 
-## How pinging works
+## Monitor types
 
-- Each enabled endpoint gets a goroutine with a `time.Ticker` at its `intervalSec`.
-- Each tick fires an HTTP request with `timeoutSec` deadline; result is stored in `checks`.
-- Endpoint flips to `down` after `failureThreshold` consecutive failures, back to `up` on the next success.
+Every monitor has a `checkType` and a URI-shaped `url` target. Existing API clients can omit `checkType`; it defaults to `http`.
+
+| Check type | Example target | A successful check means |
+|------------|----------------|--------------------------|
+| `http` | `https://api.example.com/healthz` | The response has the expected status and passes all assertions |
+| `tcp` | `tcp://vpn.example.com:443` | A TCP connection was established before the timeout |
+| `icmp` | `icmp://vpn.example.com` | A matching ICMP echo reply arrived before the timeout |
+
+HTTP method, expected status, response assertions, and SSL certificate monitoring apply only to HTTP monitors. TCP checks connect and immediately close without sending application data.
+
+ICMP needs permission to create a ping socket. The production image grants `cap_net_raw` only to the API executable, and the Compose file keeps `NET_RAW` available to the otherwise unprivileged container. If you deploy another way, grant that capability or configure the host's unprivileged ping socket range.
+
+## How monitoring works
+
+- Each enabled monitor gets a goroutine with a `time.Ticker` at its `intervalSec`.
+- Each tick runs the selected protocol probe with a `timeoutSec` deadline; the result and latency are stored in `checks`.
+- A monitor flips to `down` after `failureThreshold` consecutive failures, back to `up` on the next success.
 - On `up→down` or `down→up` transitions, all attached alert channels receive a notification.
+
+For VPN monitoring, ICMP proves host reachability and TCP proves that a TCP listener accepts connections. Neither proves that an authenticated VPN tunnel carries traffic. WireGuard and UDP-based OpenVPN cannot be validated by a generic UDP port check; use an external VPN client that requests a private health target when you need end-to-end verification.
 
 ## Alert channels
 

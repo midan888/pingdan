@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import type { Metadata, Viewport } from "next";
 import { JsonLd } from "@/components/JsonLd";
+import { Analytics } from "@/components/Analytics";
+import { CookieConsent } from "@/components/CookieConsent";
 import "./globals.css";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://pingdan.dev";
@@ -90,9 +92,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body>
+        <Analytics />
         <JsonLd data={orgJsonLd} />
         <JsonLd data={siteJsonLd} />
         {children}
+        <CookieConsent />
       </body>
     </html>
   );

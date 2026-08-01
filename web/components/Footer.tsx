@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CookieSettingsLink } from "./CookieConsent";
 
 const cols = [
   {
@@ -20,6 +21,7 @@ const cols = [
     links: [
       { href: "/about", label: "About" },
       { href: "/about#contact", label: "Contact" },
+      { href: "/privacy", label: "Privacy Policy" },
     ],
   },
   {
@@ -48,6 +50,7 @@ export function Footer() {
               {c.links.map((l) => (
                 <Link key={l.href + l.label} href={l.href}>{l.label}</Link>
               ))}
+              {c.title === "Company" && <CookieSettingsLink />}
             </div>
           ))}
         </div>

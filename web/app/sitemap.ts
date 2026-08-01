@@ -14,6 +14,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: "/docs", priority: 0.7, changeFrequency: "monthly" as const },
     { path: "/blog", priority: 0.8, changeFrequency: "weekly" as const },
     { path: "/about", priority: 0.5, changeFrequency: "yearly" as const },
+    { path: "/privacy", priority: 0.3, changeFrequency: "yearly" as const },
     // /login is intentionally omitted — it is noindex (no search value).
     { path: "/register", priority: 0.6, changeFrequency: "yearly" as const },
   ];

@@ -162,13 +162,31 @@ export type EndpointState = "up" | "down" | "unknown";
 export type CheckType = "http" | "tcp" | "icmp";
 
 /**
- * Accent color for a group section, driven by the worst state among its
- * endpoints: red if any is down, green if all are up, neutral otherwise
- * (pending/unknown, or an empty group). Mirrors the status pill colors so the
- * group header reads as a status at a glance.
+ * What the UI shows for a monitor. `currentState` alone is the *alerting*
+ * state: it only flips to "down" once `failureThreshold` checks have failed in
+ * a row, so a monitor whose latest checks are failing still reads "up" until
+ * the threshold is crossed (and drops straight back to "up" on one success).
+ * "degraded" fills that gap — failing right now, not yet alerting.
  */
-export function groupStatusColor(states: EndpointState[]): string {
+export type DisplayState = EndpointState | "degraded";
+
+/** Resolves the state to render for a monitor. See {@link DisplayState}. */
+export function displayState(
+  e: Pick<Endpoint, "currentState" | "consecutiveFailures">
+): DisplayState {
+  if (e.currentState !== "down" && e.consecutiveFailures > 0) return "degraded";
+  return e.currentState;
+}
+
+/**
+ * Accent color for a group section, driven by the worst state among its
+ * endpoints: red if any is down, amber if any is degraded, green if all are up,
+ * neutral otherwise (pending/unknown, or an empty group). Mirrors the status
+ * pill colors so the group header reads as a status at a glance.
+ */
+export function groupStatusColor(states: DisplayState[]): string {
   if (states.some((s) => s === "down")) return "var(--down)";
+  if (states.some((s) => s === "degraded")) return "var(--warn)";
   if (states.length > 0 && states.every((s) => s === "up")) return "var(--up)";
   return "var(--unknown)";
 }

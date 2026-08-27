@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Nav } from "@/components/Nav";
-import { api, getToken, intervalLabel, daysUntil, sslSeverity, groupStatusColor, monitorTargetSummary, supportsSSLMonitoring, type Endpoint, type Group } from "@/lib/api";
+import { api, displayState, getToken, intervalLabel, daysUntil, sslSeverity, groupStatusColor, monitorTargetSummary, supportsSSLMonitoring, type Endpoint, type Group } from "@/lib/api";
 
 const SSL_COLOR: Record<string, string | undefined> = {
   ok: "var(--up)",
@@ -92,8 +92,10 @@ export default function EndpointsPage() {
                 </tr>
               </thead>
               {sections.map((section) => {
-                const down = section.items.filter((e) => e.currentState === "down").length;
-                const accent = groupStatusColor(section.items.map((e) => e.currentState));
+                const sectionStates = section.items.map(displayState);
+                const down = sectionStates.filter((s) => s === "down").length;
+                const degraded = sectionStates.filter((s) => s === "degraded").length;
+                const accent = groupStatusColor(sectionStates);
                 return (
                   <tbody key={section.id} style={{ ["--group-accent" as string]: accent }}>
                     {sections.length > 1 && (
@@ -102,10 +104,13 @@ export default function EndpointsPage() {
                           <span className="group-row-name">{section.name}</span>
                           <span className="group-count">{section.items.length}</span>
                           {down > 0 && <span className="pill down">{down} down</span>}
+                          {degraded > 0 && <span className="pill degraded">{degraded} degraded</span>}
                         </td>
                       </tr>
                     )}
-                    {section.items.map((e) => (
+                    {section.items.map((e) => {
+                      const state = displayState(e);
+                      return (
                       <tr
                         key={e.id}
                         style={{ cursor: "pointer" }}
@@ -113,19 +118,31 @@ export default function EndpointsPage() {
                       >
                         <td>
                           <div className="row">
-                            <span className={`dot ${e.currentState}`} />
+                            <span className={`dot ${state}`} />
                             <strong>{e.name}</strong>
                           </div>
                         </td>
                         <td className="mono muted">
                           {monitorTargetSummary(e)}
                         </td>
-                        <td><span className={`pill ${e.currentState}`}>{e.currentState}</span></td>
+                        <td>
+                          <span
+                            className={`pill ${state}`}
+                            title={
+                              state === "degraded"
+                                ? `${e.consecutiveFailures} failed check${e.consecutiveFailures === 1 ? "" : "s"} in a row — alerts at ${e.failureThreshold}`
+                                : undefined
+                            }
+                          >
+                            {state}
+                          </span>
+                        </td>
                         <td className="num mono"><SSLCell e={e} /></td>
                         <td className="num">{intervalLabel(e.intervalSec)}</td>
                         <td className="mono muted">{e.lastCheckedAt ? new Date(e.lastCheckedAt).toLocaleString() : "—"}</td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 );
               })}

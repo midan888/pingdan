@@ -9,6 +9,7 @@ import { EndpointForm, EndpointFormValues } from "@/components/EndpointForm";
 import { channelIcon } from "@/lib/channels";
 import {
   api,
+  displayState,
   getToken,
   daysUntil,
   monitorTargetSummary,
@@ -159,6 +160,7 @@ export default function EndpointDetailPage() {
   }
 
   const failedChecks = stats ? stats.total - stats.upCount : 0;
+  const state = endpoint ? displayState(endpoint) : "unknown";
 
   if (loading) {
     return (
@@ -189,10 +191,16 @@ export default function EndpointDetailPage() {
         <div className="page-head">
           <div>
             <div className="row">
-              <span className={`dot ${endpoint.currentState}`} />
+              <span className={`dot ${state}`} />
               <h1 style={{ margin: 0 }}>{endpoint.name}</h1>
-              <span className={`pill ${endpoint.currentState}`}>{endpoint.currentState}</span>
+              <span className={`pill ${state}`}>{state}</span>
             </div>
+            {state === "degraded" && (
+              <div className="subtitle" style={{ color: "var(--warn)" }}>
+                {endpoint.consecutiveFailures} failed check{endpoint.consecutiveFailures === 1 ? "" : "s"} in a row —
+                alerts fire at {endpoint.failureThreshold}.
+              </div>
+            )}
             {endpoint.checkType === "http" ? (
               <a className="subtitle mono" href={endpoint.url} target="_blank" rel="noreferrer">
                 {monitorTargetSummary(endpoint)}

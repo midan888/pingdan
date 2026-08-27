@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Nav } from "@/components/Nav";
 import { Sparkline, MiniStatusBar } from "@/components/Charts";
-import { api, getToken, groupStatusColor, type Check, type Endpoint, type EndpointStats, type Group } from "@/lib/api";
+import { api, displayState, getToken, groupStatusColor, type Check, type Endpoint, type EndpointStats, type Group } from "@/lib/api";
 
 type Row = { endpoint: Endpoint; checks: Check[]; stats: EndpointStats | null };
 
@@ -15,15 +15,25 @@ const UNGROUPED = "__ungrouped__";
 
 function EndpointCard({ endpoint, checks, stats }: Row) {
   const last = checks[0];
+  const state = displayState(endpoint);
   return (
     <Link href={`/endpoints/${endpoint.id}`} style={{ color: "inherit", textDecoration: "none" }}>
       <div className="card hoverable">
         <div className="spread" style={{ marginBottom: "0.75rem" }}>
           <div className="row">
-            <span className={`dot ${endpoint.currentState}`} />
+            <span className={`dot ${state}`} />
             <strong>{endpoint.name}</strong>
           </div>
-          <span className={`pill ${endpoint.currentState}`}>{endpoint.currentState}</span>
+          <span
+            className={`pill ${state}`}
+            title={
+              state === "degraded"
+                ? `${endpoint.consecutiveFailures} failed check${endpoint.consecutiveFailures === 1 ? "" : "s"} in a row — alerts at ${endpoint.failureThreshold}`
+                : undefined
+            }
+          >
+            {state}
+          </span>
         </div>
 
         <div className="mono muted" style={{ fontSize: "0.78rem", marginBottom: "0.75rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -105,10 +115,11 @@ export default function DashboardPage() {
   const ungrouped = rows.filter((r) => !r.endpoint.groupId || !groupName(r.endpoint.groupId));
   if (ungrouped.length > 0) sections.push({ id: UNGROUPED, name: "Ungrouped", rows: ungrouped });
 
-  const eps = rows.map((r) => r.endpoint);
-  const up = eps.filter((e) => e.currentState === "up").length;
-  const down = eps.filter((e) => e.currentState === "down").length;
-  const unknown = eps.filter((e) => e.currentState === "unknown").length;
+  const states = rows.map((r) => displayState(r.endpoint));
+  const up = states.filter((s) => s === "up").length;
+  const down = states.filter((s) => s === "down").length;
+  const degraded = states.filter((s) => s === "degraded").length;
+  const unknown = states.filter((s) => s === "unknown").length;
   const avgUptime =
     rows.length > 0
       ? rows.reduce((acc, r) => acc + (r.stats?.uptimePct ?? 0), 0) / rows.length
@@ -146,7 +157,7 @@ export default function DashboardPage() {
         </div>
 
         {/* summary cards */}
-        <div className="grid grid-5 stat-strip" style={{ marginBottom: "1.5rem" }}>
+        <div className="grid grid-6 stat-strip" style={{ marginBottom: "1.5rem" }}>
           <div className="card stat">
             <div className="label">Operational</div>
             <div className="value" style={{ color: "var(--up)" }}>{up}</div>
@@ -154,6 +165,10 @@ export default function DashboardPage() {
           <div className="card stat">
             <div className="label">Down</div>
             <div className="value" style={{ color: down > 0 ? "var(--down)" : undefined }}>{down}</div>
+          </div>
+          <div className="card stat" title="Latest check failed, but not enough failures in a row to alert yet">
+            <div className="label">Degraded</div>
+            <div className="value" style={{ color: degraded > 0 ? "var(--warn)" : undefined }}>{degraded}</div>
           </div>
           <div className="card stat">
             <div className="label">Pending</div>
@@ -178,16 +193,18 @@ export default function DashboardPage() {
           </div>
         ) : (
           sections.map((section) => {
-            const states = section.rows.map((r) => r.endpoint.currentState);
-            const sUp = states.filter((s) => s === "up").length;
-            const sDown = states.filter((s) => s === "down").length;
-            const accent = groupStatusColor(states);
+            const sectionStates = section.rows.map((r) => displayState(r.endpoint));
+            const sUp = sectionStates.filter((s) => s === "up").length;
+            const sDown = sectionStates.filter((s) => s === "down").length;
+            const sDegraded = sectionStates.filter((s) => s === "degraded").length;
+            const accent = groupStatusColor(sectionStates);
             return (
               <section key={section.id} className="group-section" style={{ ["--group-accent" as string]: accent }}>
                 <div className="group-header">
                   <h2>{section.name}</h2>
                   <span className="group-count">{section.rows.length}</span>
                   {sDown > 0 && <span className="pill down">{sDown} down</span>}
+                  {sDegraded > 0 && <span className="pill degraded">{sDegraded} degraded</span>}
                   {sDown === 0 && sUp === section.rows.length && <span className="pill up">all up</span>}
                 </div>
                 <div className="grid grid-auto">

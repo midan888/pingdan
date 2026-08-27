@@ -191,6 +191,25 @@ export function groupStatusColor(states: DisplayState[]): string {
   return "var(--unknown)";
 }
 
+/** One time slice of a monitor's history. `total === 0` means "no data". */
+export type HistoryBucket = { total: number; failed: number };
+
+/**
+ * Pass/fail counts bucketed evenly across a window, from
+ * `/endpoints/:id/history`. The dashboard draws its status bar from this so the
+ * bar and the uptime figure beside it describe the same period — drawing the
+ * last N raw checks instead left a card fully green hours after an outage.
+ */
+export type EndpointHistory = {
+  from: string;
+  to: string;
+  bucketSec: number;
+  total: number;
+  failed: number;
+  uptimePct: number;
+  buckets: HistoryBucket[];
+};
+
 export type Endpoint = {
   id: string;
   groupId: string | null;

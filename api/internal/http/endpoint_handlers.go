@@ -78,6 +78,7 @@ func (h *EndpointHandlers) Routes(r chi.Router) {
 	r.Delete("/endpoints/{id}", h.delete)
 	r.Get("/endpoints/{id}/checks", h.listChecks)
 	r.Get("/endpoints/{id}/stats", h.stats)
+	r.Get("/endpoints/{id}/history", h.history)
 	r.Post("/endpoints/{id}/ssl-check", h.sslCheck)
 }
 
@@ -179,19 +180,48 @@ func (h *EndpointHandlers) listChecks(w http.ResponseWriter, r *http.Request) {
 	WriteJSON(w, 200, out)
 }
 
+// windowParam reads the ?hours= window, falling back to 24h and ignoring
+// values outside the range the checks table is retained for.
+func windowParam(r *http.Request) time.Duration {
+	if q := r.URL.Query().Get("hours"); q != "" {
+		if n, err := strconv.Atoi(q); err == nil && n > 0 && n <= 24*30 {
+			return time.Duration(n) * time.Hour
+		}
+	}
+	return 24 * time.Hour
+}
+
+// history returns pass/fail counts bucketed evenly across a time window, sized
+// for the dashboard's status bar. The bar and the uptime figure beside it then
+// cover the same window: drawing the last N raw checks instead made a card look
+// fully green hours after an outage the uptime percentage still reflected.
+func (h *EndpointHandlers) history(w http.ResponseWriter, r *http.Request) {
+	e := h.owned(w, r)
+	if e == nil {
+		return
+	}
+	buckets := 30
+	if q := r.URL.Query().Get("buckets"); q != "" {
+		if n, err := strconv.Atoi(q); err == nil && n > 0 && n <= 500 {
+			buckets = n
+		}
+	}
+	until := time.Now()
+	hist, err := h.Checks.HistorySince(r.Context(), e.ID, until.Add(-windowParam(r)), until, buckets)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	WriteJSON(w, 200, hist)
+}
+
 // stats returns aggregate uptime/latency stats over a time window (default 24h).
 func (h *EndpointHandlers) stats(w http.ResponseWriter, r *http.Request) {
 	e := h.owned(w, r)
 	if e == nil {
 		return
 	}
-	window := 24 * time.Hour
-	if q := r.URL.Query().Get("hours"); q != "" {
-		if n, err := strconv.Atoi(q); err == nil && n > 0 && n <= 24*30 {
-			window = time.Duration(n) * time.Hour
-		}
-	}
-	since := time.Now().Add(-window)
+	since := time.Now().Add(-windowParam(r))
 	st, err := h.Checks.StatsSince(r.Context(), e.ID, since)
 	if err != nil {
 		http.Error(w, err.Error(), 500)

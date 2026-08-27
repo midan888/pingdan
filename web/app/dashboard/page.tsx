@@ -5,17 +5,32 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Nav } from "@/components/Nav";
 import { Sparkline, MiniStatusBar } from "@/components/Charts";
-import { api, displayState, getToken, groupStatusColor, type Check, type Endpoint, type EndpointStats, type Group } from "@/lib/api";
+import { api, displayState, getToken, groupStatusColor, type Check, type Endpoint, type EndpointHistory, type Group } from "@/lib/api";
 
-type Row = { endpoint: Endpoint; checks: Check[]; stats: EndpointStats | null };
+type Row = { endpoint: Endpoint; checks: Check[]; history: EndpointHistory | null };
+
+// Window the dashboard cards summarise. The status bar and the uptime figure
+// on a card both cover this period.
+const WINDOW_HOURS = 24;
+const BUCKETS = 30;
 
 // Sentinel filter values that aren't real group ids.
 const ALL = "__all__";
 const UNGROUPED = "__ungrouped__";
 
-function EndpointCard({ endpoint, checks, stats }: Row) {
+function EndpointCard({ endpoint, checks, history }: Row) {
   const last = checks[0];
   const state = displayState(endpoint);
+  // A recovered monitor is legitimately "up", so the incident has to read from
+  // the window figures instead of the live state.
+  const uptimeColor =
+    history == null || history.total === 0
+      ? "var(--text-dim)"
+      : history.uptimePct >= 99.9
+      ? "var(--text-dim)"
+      : history.uptimePct >= 99
+      ? "var(--warn)"
+      : "var(--down)";
   return (
     <Link href={`/endpoints/${endpoint.id}`} style={{ color: "inherit", textDecoration: "none" }}>
       <div className="card hoverable">
@@ -42,12 +57,15 @@ function EndpointCard({ endpoint, checks, stats }: Row) {
 
         <Sparkline checks={checks} width={400} height={40} />
         <div style={{ marginTop: "0.5rem" }}>
-          <MiniStatusBar checks={checks} count={30} />
+          <MiniStatusBar buckets={history?.buckets ?? []} windowLabel={`last ${WINDOW_HOURS}h`} />
         </div>
 
         <div className="spread" style={{ marginTop: "0.85rem", fontSize: "0.82rem" }}>
-          <span className="muted">
-            {stats ? `${stats.uptimePct.toFixed(1)}% uptime` : "—"}
+          <span style={{ color: uptimeColor }}>
+            {history ? `${history.uptimePct.toFixed(1)}% uptime` : "—"}
+            {history && history.failed > 0 && (
+              <span className="faint"> · {history.failed} failed</span>
+            )}
           </span>
           <span className="mono muted">
             {last?.latencyMs != null ? `${last.latencyMs} ms` : "—"}
@@ -73,11 +91,13 @@ export default function DashboardPage() {
     setGroups(grps);
     const rows = await Promise.all(
       eps.map(async (endpoint) => {
-        const [checks, stats] = await Promise.all([
+        const [checks, history] = await Promise.all([
           api<Check[]>(`/endpoints/${endpoint.id}/checks?limit=40`).catch(() => [] as Check[]),
-          api<EndpointStats>(`/endpoints/${endpoint.id}/stats?hours=24`).catch(() => null),
+          api<EndpointHistory>(
+            `/endpoints/${endpoint.id}/history?hours=${WINDOW_HOURS}&buckets=${BUCKETS}`
+          ).catch(() => null),
         ]);
-        return { endpoint, checks, stats };
+        return { endpoint, checks, history };
       })
     );
     setAllRows(rows);
@@ -122,12 +142,9 @@ export default function DashboardPage() {
   const unknown = states.filter((s) => s === "unknown").length;
   const avgUptime =
     rows.length > 0
-      ? rows.reduce((acc, r) => acc + (r.stats?.uptimePct ?? 0), 0) / rows.length
+      ? rows.reduce((acc, r) => acc + (r.history?.uptimePct ?? 0), 0) / rows.length
       : null;
-  const failedChecks = rows.reduce(
-    (acc, r) => acc + (r.stats ? r.stats.total - r.stats.upCount : 0),
-    0
-  );
+  const failedChecks = rows.reduce((acc, r) => acc + (r.history?.failed ?? 0), 0);
 
   return (
     <>
@@ -197,6 +214,12 @@ export default function DashboardPage() {
             const sUp = sectionStates.filter((s) => s === "up").length;
             const sDown = sectionStates.filter((s) => s === "down").length;
             const sDegraded = sectionStates.filter((s) => s === "degraded").length;
+            // Monitors that are healthy now but failed at some point in the
+            // window. Without this a section reads "all up" the moment an
+            // outage ends, which is what a green dot alone can't say.
+            const sRecovered = section.rows.filter(
+              (r) => displayState(r.endpoint) === "up" && (r.history?.failed ?? 0) > 0
+            ).length;
             const accent = groupStatusColor(sectionStates);
             return (
               <section key={section.id} className="group-section" style={{ ["--group-accent" as string]: accent }}>
@@ -205,11 +228,18 @@ export default function DashboardPage() {
                   <span className="group-count">{section.rows.length}</span>
                   {sDown > 0 && <span className="pill down">{sDown} down</span>}
                   {sDegraded > 0 && <span className="pill degraded">{sDegraded} degraded</span>}
-                  {sDown === 0 && sUp === section.rows.length && <span className="pill up">all up</span>}
+                  {sDown === 0 && sDegraded === 0 && sRecovered > 0 && (
+                    <span className="pill degraded" title={`Up now, but failed checks in the last ${WINDOW_HOURS}h`}>
+                      {sRecovered} recovered
+                    </span>
+                  )}
+                  {sDown === 0 && sRecovered === 0 && sUp === section.rows.length && (
+                    <span className="pill up">all up</span>
+                  )}
                 </div>
                 <div className="grid grid-auto">
-                  {section.rows.map(({ endpoint, checks, stats }) => (
-                    <EndpointCard key={endpoint.id} endpoint={endpoint} checks={checks} stats={stats} />
+                  {section.rows.map(({ endpoint, checks, history }) => (
+                    <EndpointCard key={endpoint.id} endpoint={endpoint} checks={checks} history={history} />
                   ))}
                 </div>
               </section>

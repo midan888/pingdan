@@ -155,3 +155,79 @@ func sortInts(a []int) {
 		}
 	}
 }
+
+// Bucket is one equal-width time slice of an endpoint's check history.
+// A bucket with Total == 0 had no checks in it (monitor paused, created
+// mid-window, or a gap in collection) and renders as "no data".
+type Bucket struct {
+	Total  int `json:"total"`
+	Failed int `json:"failed"`
+}
+
+// History summarises an endpoint's checks over a window, both in aggregate and
+// split into equally sized time buckets (oldest first).
+//
+// Bucketing happens in SQL on purpose: a 24h window at a 60s interval is 1440
+// rows per monitor, and the dashboard refreshes every monitor every 15s. The
+// grouped query returns one row per bucket instead, so the status bar can span
+// the same window as the uptime figure next to it without shipping the raw
+// check log for the whole dashboard.
+type History struct {
+	From      time.Time `json:"from"`
+	To        time.Time `json:"to"`
+	BucketSec int       `json:"bucketSec"`
+	Total     int       `json:"total"`
+	Failed    int       `json:"failed"`
+	UptimePct float64   `json:"uptimePct"`
+	Buckets   []Bucket  `json:"buckets"`
+}
+
+// HistorySince buckets [since, until) into n slices of equal duration.
+func (s *Store) HistorySince(ctx context.Context, endpointID string, since, until time.Time, n int) (History, error) {
+	if n <= 0 {
+		n = 30
+	}
+	h := History{From: since, To: until, Buckets: make([]Bucket, n)}
+	span := until.Sub(since)
+	if span <= 0 {
+		return h, nil
+	}
+	bucketSec := span.Seconds() / float64(n)
+	h.BucketSec = int(bucketSec + 0.5)
+
+	// The index is clamped either side so a row landing exactly on `until`
+	// (or on a boundary rounded the wrong way) folds into the edge bucket
+	// rather than overflowing the slice.
+	rows, err := s.Pool.Query(ctx, `
+		SELECT LEAST($4::int - 1, GREATEST(0, floor(EXTRACT(EPOCH FROM (checked_at - $2::timestamptz)) / $3::float8)::int)) AS bucket,
+		       COUNT(*)::int AS total,
+		       COUNT(*) FILTER (WHERE NOT ok)::int AS failed
+		FROM checks
+		WHERE endpoint_id=$1 AND checked_at >= $2::timestamptz AND checked_at < $5::timestamptz
+		GROUP BY bucket
+		ORDER BY bucket
+	`, endpointID, since, bucketSec, n, until)
+	if err != nil {
+		return History{}, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var idx, total, failed int
+		if err := rows.Scan(&idx, &total, &failed); err != nil {
+			return History{}, err
+		}
+		if idx < 0 || idx >= n {
+			continue
+		}
+		h.Buckets[idx] = Bucket{Total: total, Failed: failed}
+		h.Total += total
+		h.Failed += failed
+	}
+	if err := rows.Err(); err != nil {
+		return History{}, err
+	}
+	if h.Total > 0 {
+		h.UptimePct = float64(h.Total-h.Failed) / float64(h.Total) * 100
+	}
+	return h, nil
+}

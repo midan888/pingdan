@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Check } from "@/lib/api";
+import type { Check, HistoryBucket } from "@/lib/api";
 
 const UP = "#3fb950";
 const DOWN = "#f85149";
@@ -191,16 +191,52 @@ export function Sparkline({ checks, width = 180, height = 36 }: { checks: Check[
   );
 }
 
-/** UptimeBars: small fixed-count status bars used in dashboard cards. */
-export function MiniStatusBar({ checks, count = 30 }: { checks: Check[]; count?: number }) {
-  const data = [...checks].reverse().slice(-count);
+/**
+ * MiniStatusBar: the uptime strip on a dashboard card, one segment per time
+ * bucket (oldest → newest). A bucket is red if *any* check in it failed, so an
+ * outage stays visible for the whole window rather than scrolling out of view
+ * as soon as the monitor recovers.
+ */
+export function MiniStatusBar({ buckets, windowLabel }: { buckets: HistoryBucket[]; windowLabel?: string }) {
+  const [tip, setTip] = useState<Tip>(null);
+  if (buckets.length === 0) {
+    return <div style={{ height: 18 }} />;
+  }
   return (
-    <div style={{ display: "flex", gap: 2, height: 18 }}>
-      {Array.from({ length: count }).map((_, i) => {
-        const c = data[i - (count - data.length)];
-        const bg = c == null ? DIM : c.ok ? UP : DOWN;
-        return <div key={i} style={{ flex: 1, borderRadius: 1.5, background: bg, opacity: c == null ? 0.5 : 0.85 }} />;
-      })}
-    </div>
+    <>
+      <div style={{ display: "flex", gap: 2, height: 18 }}>
+        {buckets.map((b, i) => {
+          const empty = b.total === 0;
+          const bg = empty ? DIM : b.failed > 0 ? DOWN : UP;
+          return (
+            <div
+              key={i}
+              style={{ flex: 1, borderRadius: 1.5, background: bg, opacity: empty ? 0.5 : 0.85, cursor: "pointer" }}
+              onMouseEnter={(e) =>
+                setTip({
+                  x: e.clientX,
+                  y: e.clientY,
+                  lines: empty
+                    ? ["No checks"]
+                    : [`${b.failed} of ${b.total} checks failed`],
+                })
+              }
+              onMouseMove={(e) => setTip((t) => (t ? { ...t, x: e.clientX, y: e.clientY } : t))}
+              onMouseLeave={() => setTip(null)}
+            />
+          );
+        })}
+      </div>
+      {windowLabel && (
+        <div className="faint" style={{ fontSize: "0.68rem", marginTop: "0.25rem" }}>{windowLabel}</div>
+      )}
+      {tip && (
+        <div className="bar-tip" style={{ left: tip.x + 12, top: tip.y + 12 }}>
+          {tip.lines.map((l, i) => (
+            <div key={i}>{l}</div>
+          ))}
+        </div>
+      )}
+    </>
   );
 }

@@ -21,6 +21,7 @@ const cols = [
     links: [
       { href: "/about", label: "About" },
       { href: "/about#contact", label: "Contact" },
+      { href: "mailto:support@pingdan.dev", label: "Support" },
       { href: "/privacy", label: "Privacy Policy" },
     ],
   },
@@ -56,7 +57,9 @@ export function Footer() {
         </div>
         <div className="footer-bottom">
           <span>© {new Date().getFullYear()} pingdan. All rights reserved.</span>
-          <span>Built for engineers who hate downtime.</span>
+          <span>
+            Found an issue? <a href="mailto:support@pingdan.dev">support@pingdan.dev</a>
+          </span>
         </div>
       </div>
     </footer>

@@ -72,6 +72,7 @@ func (h *EndpointHandlers) replaceChannels(ctx context.Context, userID, endpoint
 
 func (h *EndpointHandlers) Routes(r chi.Router) {
 	r.Get("/endpoints", h.list)
+	r.Get("/endpoints/channels", h.listChannelMap)
 	r.Post("/endpoints", h.create)
 	r.Get("/endpoints/{id}", h.get)
 	r.Put("/endpoints/{id}", h.update)
@@ -121,6 +122,36 @@ func (h *EndpointHandlers) list(w http.ResponseWriter, r *http.Request) {
 	u := UserFrom(r.Context())
 	out, err := h.Store.List(r.Context(), u.ID)
 	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	WriteJSON(w, 200, out)
+}
+
+// listChannelMap returns, for each of the user's endpoints, the IDs of its
+// attached alert channels (endpoints with none are omitted).
+func (h *EndpointHandlers) listChannelMap(w http.ResponseWriter, r *http.Request) {
+	u := UserFrom(r.Context())
+	rows, err := h.Pool.Query(r.Context(), `
+		SELECT eac.endpoint_id, eac.channel_id
+		FROM endpoint_alert_channels eac
+		JOIN endpoints e ON e.id = eac.endpoint_id
+		WHERE e.user_id = $1`, u.ID)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	defer rows.Close()
+	out := map[string][]string{}
+	for rows.Next() {
+		var eid, cid string
+		if err := rows.Scan(&eid, &cid); err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		out[eid] = append(out[eid], cid)
+	}
+	if err := rows.Err(); err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}

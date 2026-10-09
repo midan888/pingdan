@@ -105,7 +105,10 @@ export function Nav() {
             </Link>
           ))}
         </div>
-        <div style={{ marginLeft: "auto" }}>
+        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "0.75rem" }}>
+          <a href="mailto:support@pingdan.dev" className="muted" title="Report an issue: support@pingdan.dev">
+            Support
+          </a>
           <button className="ghost" onClick={logout}>
             Log out
           </button>
